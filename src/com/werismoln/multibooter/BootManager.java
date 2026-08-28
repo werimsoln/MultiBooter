@@ -38,6 +38,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.DataOutputStream;
 import java.io.FileOutputStream;
@@ -76,16 +77,17 @@ public class BootManager extends Activity {
     cardventoy = findViewById(R.id.card_usb2);
     cardgadget = findViewById(R.id.card_gadget);
     cardtftp = findViewById(R.id.card_tftp);
-
+    Button button7 = findViewById(R.id.boot_continue);
+	
     addTouchAnimation(cardventoy, 1);
     addTouchAnimation(cardusb, 2);
     addTouchAnimation(cardgadget, 3);
     addTouchAnimation(cardtftp, 4);
 
     cardgadget.setEnabled(false);
-    cardgadget.setAlpha(0.5 f);
+    cardgadget.setAlpha(0.5f);
     cardtftp.setEnabled(false);
-    cardtftp.setAlpha(0.5 f);
+    cardtftp.setAlpha(0.5f);
 
     resetCard(cardusb);
     resetCard(cardgadget);
@@ -94,9 +96,9 @@ public class BootManager extends Activity {
 
     if (isRootGrantedSaved()) {
       cardgadget.setEnabled(true);
-      cardgadget.setAlpha(1.0 f);
+      cardgadget.setAlpha(1.0f);
       cardtftp.setEnabled(true);
-      cardtftp.setAlpha(1.0 f);
+      cardtftp.setAlpha(1.0f);
     }
 
     restorestate();
@@ -109,6 +111,14 @@ public class BootManager extends Activity {
         } else {
           openDrawer();
         }
+      }
+    });
+	
+	button7.setOnClickListener(new View.OnClickListener() {
+      @Override
+      public void onClick(View v) {
+        String message = NativeBridge.getNativeMessage();
+		Toast.makeText(BootManager.this, message, Toast.LENGTH_LONG).show();
       }
     });
 
@@ -165,8 +175,8 @@ public class BootManager extends Activity {
         case MotionEvent.ACTION_DOWN:
 
           view.animate()
-            .scaleX(0.95 f)
-            .scaleY(0.95 f)
+            .scaleX(0.95f)
+            .scaleY(0.95f)
             .setDuration(70)
             .start();
 
@@ -175,8 +185,8 @@ public class BootManager extends Activity {
         case MotionEvent.ACTION_UP:
 
           view.animate()
-            .scaleX(1.00 f)
-            .scaleY(1.00 f)
+            .scaleX(1.00f)
+            .scaleY(1.00f)
             .setDuration(120)
             .start();
 
@@ -187,8 +197,8 @@ public class BootManager extends Activity {
         case MotionEvent.ACTION_CANCEL:
 
           view.animate()
-            .scaleX(0.97 f)
-            .scaleY(0.97 f)
+            .scaleX(0.97f)
+            .scaleY(0.97f)
             .setDuration(100)
             .start();
 
@@ -205,8 +215,8 @@ public class BootManager extends Activity {
     view.setSelected(false);
 
     view.animate()
-      .scaleX(0.97 f)
-      .scaleY(0.97 f)
+      .scaleX(0.97f)
+      .scaleY(0.97f)
       .setDuration(100)
       .start();
   }
@@ -214,8 +224,8 @@ public class BootManager extends Activity {
   private void scaleSelected(View view) {
 
     view.animate()
-      .scaleX(1.00 f)
-      .scaleY(1.00 f)
+      .scaleX(1.00f)
+      .scaleY(1.00f)
       .setDuration(100)
       .start();
   }
@@ -223,8 +233,8 @@ public class BootManager extends Activity {
   private void scaleSelectedFaster(View view) {
 
     view.animate()
-      .scaleX(1.00 f)
-      .scaleY(1.00 f)
+      .scaleX(1.00f)
+      .scaleY(1.00f)
       .setDuration(0)
       .start();
   }
@@ -260,7 +270,7 @@ public class BootManager extends Activity {
       .start();
 
     drawerOverlay.animate()
-      .alpha(1.0 f)
+      .alpha(1.0f)
       .setDuration(300)
       .start();
 
@@ -277,7 +287,7 @@ public class BootManager extends Activity {
       .start();
 
     drawerOverlay.animate()
-      .alpha(1.0 f)
+      .alpha(1.0f)
       .setDuration(0)
       .start();
 
@@ -292,7 +302,7 @@ public class BootManager extends Activity {
       .start();
 
     drawerOverlay.animate()
-      .alpha(0.0 f)
+      .alpha(0.0f)
       .setDuration(250)
       .setListener(new AnimatorListenerAdapter() {
         @Override

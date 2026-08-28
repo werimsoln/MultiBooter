@@ -17,3 +17,11 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  *
  */
+ 
+#include <jni.h>
+
+JNIEXPORT jstring JNICALL
+
+Java_com_werismoln_multibooter_NativeBridge_getNativeMessage(JNIEnv *env, jclass clazz) {
+    return (*env)->NewStringUTF(env, "NDK kütüphanesinden selamlar!");
+}

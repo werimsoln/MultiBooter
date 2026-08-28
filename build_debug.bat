@@ -2,10 +2,12 @@
 set ANDROID_HOME=C:\Android\sdk
 set PLATFORM=%ANDROID_HOME%\platforms\android-34\android.jar
 set BUILD_TOOLS=%ANDROID_HOME%\build-tools\34.0.0
+set NDK_BIN=%ANDROID_HOME%\ndk\26.1.10909125\toolchains\llvm\prebuilt\windows-x86_64\bin
 setlocal enabledelayedexpansion
 
 if exist gen rmdir /s /q gen
 if exist obj rmdir /s /q obj
+if exist lib rmdir /s /q lib
 if exist compiled_res.zip del /f /q compiled_res.zip
 if exist classes.dex del /f /q classes.dex
 if exist app-*.apk del /f /q app-*.apk
@@ -13,6 +15,16 @@ if exist sources.txt del /f /q sources.txt
 
 mkdir gen
 mkdir obj
+mkdir lib\arm64-v8a
+
+%NDK_BIN%\clang.exe --target=aarch64-linux-android34 -shared -fPIC jni\libgadget.c -o lib\arm64-v8a\libgadget.so
+if %errorlevel% neq 0 exit /b %errorlevel%
+
+%NDK_BIN%\clang.exe --target=aarch64-linux-android34 -shared -fPIC jni\libscsi.c -o lib\arm64-v8a\libscsi.so
+if %errorlevel% neq 0 exit /b %errorlevel%
+
+%NDK_BIN%\clang.exe --target=aarch64-linux-android34 -shared -fPIC jni\libtftp.c -o lib\arm64-v8a\libtftp.so
+if %errorlevel% neq 0 exit /b %errorlevel%
 
 %BUILD_TOOLS%\aapt2.exe compile --dir res -o compiled_res.zip
 if %errorlevel% neq 0 exit /b %errorlevel%
@@ -30,6 +42,15 @@ call %BUILD_TOOLS%\d8.bat --min-api 26 --lib %PLATFORM% --output . !CLASS_FILES!
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 %BUILD_TOOLS%\aapt.exe add app-unaligned.apk classes.dex
+if %errorlevel% neq 0 exit /b %errorlevel%
+
+%BUILD_TOOLS%\aapt.exe add app-unaligned.apk lib/arm64-v8a/libgadget.so
+if %errorlevel% neq 0 exit /b %errorlevel%
+
+%BUILD_TOOLS%\aapt.exe add app-unaligned.apk lib/arm64-v8a/libscsi.so
+if %errorlevel% neq 0 exit /b %errorlevel%
+
+%BUILD_TOOLS%\aapt.exe add app-unaligned.apk lib/arm64-v8a/libtftp.so
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 %BUILD_TOOLS%\zipalign.exe -f -p 4 app-unaligned.apk app-aligned.apk

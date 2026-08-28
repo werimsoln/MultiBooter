@@ -96,7 +96,7 @@ public class MainActivity extends Activity {
     viewflipper.setInAnimation(MainActivity.this, R.anim.slide_in_right);
     viewflipper.setOutAnimation(MainActivity.this, R.anim.slide_out_left);
     radio1.setChecked(true);
-    radio1.animate().alpha(1.0 f).scaleX(0.5 f).scaleY(0.5 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+    radio1.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
     btnback.setText("");
     btnback.setEnabled(false);
 
@@ -145,8 +145,8 @@ public class MainActivity extends Activity {
         if (radio1.isChecked()) {
           radio1.setChecked(true);
         } else if (radio2.isChecked()) {
-          radio2.animate().alpha(1.0 f).scaleX(0.4 f).scaleY(0.4 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio1.animate().alpha(1.0 f).scaleX(0.5 f).scaleY(0.5 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio2.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio1.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
           int current = viewflipper.getDisplayedChild();
           viewflipper.setDisplayedChild(current - 1);
           radio1.setChecked(true);
@@ -154,8 +154,8 @@ public class MainActivity extends Activity {
           btnback.setText("");
           btnback.setEnabled(false);
         } else if (radio3.isChecked()) {
-          radio3.animate().alpha(1.0 f).scaleX(0.4 f).scaleY(0.4 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio2.animate().alpha(1.0 f).scaleX(0.5 f).scaleY(0.5 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio3.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio2.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
           int current = viewflipper.getDisplayedChild();
           viewflipper.setDisplayedChild(current - 1);
           radio2.setChecked(true);
@@ -165,8 +165,8 @@ public class MainActivity extends Activity {
             btnnext.setEnabled(true);
           }
         } else if (radio4.isChecked()) {
-          radio4.animate().alpha(1.0 f).scaleX(0.4 f).scaleY(0.4 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio3.animate().alpha(1.0 f).scaleX(0.5 f).scaleY(0.5 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio4.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio3.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
           int current = viewflipper.getDisplayedChild();
           viewflipper.setDisplayedChild(current - 1);
           radio3.setChecked(true);
@@ -176,8 +176,8 @@ public class MainActivity extends Activity {
             btnnext.setEnabled(true);
           }
         } else if (radio5.isChecked()) {
-          radio5.animate().alpha(1.0 f).scaleX(0.4 f).scaleY(0.4 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio4.animate().alpha(1.0 f).scaleX(0.5 f).scaleY(0.5 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio5.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio4.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
           int current = viewflipper.getDisplayedChild();
           viewflipper.setDisplayedChild(current - 1);
           radio4.setChecked(true);
@@ -201,16 +201,16 @@ public class MainActivity extends Activity {
         viewflipper.setOutAnimation(MainActivity.this, R.anim.slide_out_left);
 
         if (radio1.isChecked()) {
-          radio1.animate().alpha(1.0 f).scaleX(0.4 f).scaleY(0.4 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio2.animate().alpha(1.0 f).scaleX(0.5 f).scaleY(0.5 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio1.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio2.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
           viewflipper.showNext();
           radio1.setChecked(false);
           radio2.setChecked(true);
           btnback.setText("< BACK");
           btnback.setEnabled(true);
         } else if (radio2.isChecked()) {
-          radio2.animate().alpha(1.0 f).scaleX(0.4 f).scaleY(0.4 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio3.animate().alpha(1.0 f).scaleX(0.5 f).scaleY(0.5 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio2.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio3.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
           viewflipper.showNext();
           radio2.setChecked(false);
           radio3.setChecked(true);
@@ -219,8 +219,8 @@ public class MainActivity extends Activity {
             btnnext.setEnabled(false);
           }
         } else if (radio3.isChecked()) {
-          radio3.animate().alpha(1.0 f).scaleX(0.4 f).scaleY(0.4 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio4.animate().alpha(1.0 f).scaleX(0.5 f).scaleY(0.5 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio3.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio4.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
           viewflipper.showNext();
           radio3.setChecked(false);
           radio4.setChecked(true);
@@ -229,8 +229,8 @@ public class MainActivity extends Activity {
             btnnext.setEnabled(false);
           }
         } else if (radio4.isChecked()) {
-          radio4.animate().alpha(1.0 f).scaleX(0.4 f).scaleY(0.4 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio5.animate().alpha(1.0 f).scaleX(0.5 f).scaleY(0.5 f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio4.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+          radio5.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
           viewflipper.showNext();
           radio4.setChecked(false);
           radio5.setChecked(true);
@@ -326,18 +326,18 @@ public class MainActivity extends Activity {
 
     btnback.setOnTouchListener((v, event) -> {
       if (event.getAction() == MotionEvent.ACTION_DOWN) {
-        v.setAlpha(0.4 f);
+        v.setAlpha(0.4f);
       } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-        v.animate().alpha(1.0 f).setDuration(300).start();
+        v.animate().alpha(1.0f).setDuration(300).start();
       }
       return false;
     });
 
     btnnext.setOnTouchListener((v, event) -> {
       if (event.getAction() == MotionEvent.ACTION_DOWN) {
-        v.setAlpha(0.4 f);
+        v.setAlpha(0.4f);
       } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-        v.animate().alpha(1.0 f).setDuration(300).start();
+        v.animate().alpha(1.0f).setDuration(300).start();
       }
       return false;
 
@@ -345,9 +345,9 @@ public class MainActivity extends Activity {
 
     btngrant.setOnTouchListener((v, event) -> {
       if (event.getAction() == MotionEvent.ACTION_DOWN) {
-        v.setAlpha(0.4 f);
+        v.setAlpha(0.4f);
       } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-        v.animate().alpha(1.0 f).setDuration(300).start();
+        v.animate().alpha(1.0f).setDuration(300).start();
       }
       return false;
 
@@ -355,9 +355,9 @@ public class MainActivity extends Activity {
 
     btngrant2.setOnTouchListener((v, event) -> {
       if (event.getAction() == MotionEvent.ACTION_DOWN) {
-        v.setAlpha(0.4 f);
+        v.setAlpha(0.4f);
       } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-        v.animate().alpha(1.0 f).setDuration(300).start();
+        v.animate().alpha(1.0f).setDuration(300).start();
       }
       return false;
 
@@ -365,9 +365,9 @@ public class MainActivity extends Activity {
 
     btngrant3.setOnTouchListener((v, event) -> {
       if (event.getAction() == MotionEvent.ACTION_DOWN) {
-        v.setAlpha(0.4 f);
+        v.setAlpha(0.4f);
       } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-        v.animate().alpha(1.0 f).setDuration(300).start();
+        v.animate().alpha(1.0f).setDuration(300).start();
       }
       return false;
 
@@ -375,9 +375,9 @@ public class MainActivity extends Activity {
 
     btngrant4.setOnTouchListener((v, event) -> {
       if (event.getAction() == MotionEvent.ACTION_DOWN) {
-        v.setAlpha(0.4 f);
+        v.setAlpha(0.4f);
       } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-        v.animate().alpha(1.0 f).setDuration(300).start();
+        v.animate().alpha(1.0f).setDuration(300).start();
       }
       return false;
 
@@ -608,10 +608,10 @@ public class MainActivity extends Activity {
       if (radios[i] == null) continue;
       if (i == position) {
         radios[i].setChecked(true);
-        radios[i].animate().alpha(1.0 f).scaleX(0.5 f).scaleY(0.5 f).setDuration(250).start();
+        radios[i].animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).start();
       } else {
         radios[i].setChecked(false);
-        radios[i].animate().alpha(1.0 f).scaleX(0.4 f).scaleY(0.4 f).setDuration(250).start();
+        radios[i].animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).start();
       }
     }
 
