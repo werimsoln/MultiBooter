@@ -1,6 +1,6 @@
 # MultiBooter
 
-This is a GPLv3 licensed Android application that provides multiple boot options for your computer.  Boot Options:  
+A GPLv3 licensed Android application that provides multiple boot options for your computer.  Boot Options:  
 
 - Direct booting from the device thanks to the Linux Kernel's ConfigFS and MassStorage functions  
 
