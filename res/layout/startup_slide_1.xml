@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#0B305A" android:gravity="center_horizontal" android:padding="24dp">
+    
+	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.5" />
+    
+	<ImageView android:id="@+id/imageview1" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="3" android:src="@drawable/logo" android:scaleType="fitCenter" />
+    
+	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.5" />
+    
+	<TextView android:id="@+id/text_welcome_title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Welcome to MultiBooter!" android:textColor="#FFFFFF" android:textSize="28sp" android:textStyle="bold" android:gravity="center" />
+    
+	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.3" />
+    
+	<TextView android:id="@+id/text_welcome_desc" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="a PC booting app with multiple solutions." android:textColor="#D0E8FF" android:textSize="16sp" android:gravity="center" android:paddingStart="16dp" android:paddingEnd="16dp" />
+    
+	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+
+</LinearLayout>
