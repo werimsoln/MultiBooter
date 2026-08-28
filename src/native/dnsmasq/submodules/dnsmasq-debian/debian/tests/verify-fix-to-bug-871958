@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e
+
+. debian/tests/functions
+
+possibly_purge_resolved and_restart_dnsmasq
+# Actually, this test is pointless if systemd-resolved was purged and
+# dnsmasq was restarted, as bug #871958 only showed up with the first
+# start attempt of dnsmasq after boot.
+check_dnsmasq_status
+
+#Done
+echo Looks good.

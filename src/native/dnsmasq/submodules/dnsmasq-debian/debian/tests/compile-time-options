@@ -1,0 +1,8 @@
+#!/bin/sh
+
+set -e
+
+. debian/tests/functions
+
+possibly_purge_resolved and_restart_dnsmasq
+check_compile_time_options

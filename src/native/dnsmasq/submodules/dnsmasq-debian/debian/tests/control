@@ -1,0 +1,49 @@
+Tests: compile-time-options
+Depends: dnsmasq,
+         dnsmasq-base,
+Restrictions: needs-root,
+              isolation-container,
+
+Tests: compile-time-options+lua
+Depends: dnsmasq,
+         dnsmasq-base-lua,
+Restrictions: needs-root,
+              isolation-container,
+
+Tests: get-address+query-dns+check-utils
+Depends: bind9,
+         bind9-dnsutils,
+         dnsmasq,
+         dnsmasq-base,
+         dnsmasq-utils,
+         ifupdown,
+Restrictions: needs-root,
+              allow-stderr,
+              isolation-container,
+
+Tests: get-address+query-dns+lua+alt
+Depends: bind9,
+         bind9-dnsutils,
+         dnsmasq,
+         dnsmasq-base-lua,
+         ifupdown,
+Restrictions: needs-root,
+              allow-stderr,
+              isolation-container,
+
+Tests: get-address+query-dns+sysv+alt
+Depends: bind9,
+         bind9-dnsutils,
+         dnsmasq,
+         dnsmasq-base,
+         ifupdown,
+Restrictions: needs-root,
+              allow-stderr,
+              isolation-container,
+
+Tests: verify-fix-to-bug-871958
+Depends: dnsmasq,
+         postfix,
+         resolvconf,
+Restrictions: needs-root,
+              isolation-container,

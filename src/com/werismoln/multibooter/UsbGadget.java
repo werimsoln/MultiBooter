@@ -1,6 +1,6 @@
 import java.io.DataOutputStream;
 
-public class USBGadgetMode {
+public class UsbGadget {
 
     public static boolean enableMassStorage(String isoOrImgPath, boolean asCdRom) {
         String cdromFlag = asCdRom ? "1" : "0";

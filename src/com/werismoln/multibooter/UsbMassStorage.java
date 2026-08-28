@@ -18,7 +18,7 @@ public class UsbMassStorage {
     private UsbManager usbManager;
     private Context context;
 
-    public UsbMassStorageHelper(Context context) {
+    public UsbMassStorage(Context context) {
         this.context = context;
         this.usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
     }
