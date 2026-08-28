@@ -1,0 +1,42 @@
+Categories:
+  - System
+  - Utilities
+License: GPL-3.0-or-later
+SourceCode: https://github.com/werismoln/MultiBooter
+IssueTracker: https://github.com/werismoln/MultiBooter/issues
+
+AutoName: MultiBooter
+
+Summary: Create bootable USB media or boot directly from Android
+Description: |-
+  Create bootable USB or boot from Android.
+
+Features:
+
+- Direct booting from the device thanks to the Linux Kernel's ConfigFS and Mass Storage features.
+
+- Direct booting from the device via a TFTP server.
+
+- Booting from USB via Ventoy.
+
+- Booting from USB via a bootable CD-ROM image.
+
+- Direct booting from the device thanks to the Linux Kernel's ConfigFS and FunctionFS features. (Coming Soon)
+
+  This app is completely free, open-source, and does not use any proprietary libraries (No AndroidX).
+
+RepoType: git
+Repo: https://github.com/werismoln/MultiBooter.git
+
+Builds:
+  - versionName: v0.1.0
+    versionCode: 1000
+    commit: v0.1.0
+    build:
+    - chmod +x build.sh
+    - ./build.sh
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: v0.1.0
+CurrentCode: 1000
