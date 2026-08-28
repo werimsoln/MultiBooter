@@ -22,6 +22,6 @@
 
 JNIEXPORT jstring JNICALL
 
-Java_com_werismoln_multibooter_NativeBridge_getNativeMessage(JNIEnv *env, jclass clazz) {
+Java_com_werismoln_multibooter_NativeBridge_writeBytestoUSB(JNIEnv *env, jclass clazz) {
     return (*env)->NewStringUTF(env, "NDK kütüphanesinden selamlar!");
 }
