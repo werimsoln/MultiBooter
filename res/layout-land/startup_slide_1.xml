@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#1c75ad" android:gravity="center_horizontal" android:padding="24dp">
+    
+	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+    
+	<TextView android:id="@+id/text_welcome_title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Welcome to MultiBooter!" android:textColor="#FFFFFF" android:textSize="28sp" android:textStyle="bold" android:gravity="center" />
+    
+	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.4" />
+    
+	<TextView android:id="@+id/text_welcome_desc" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="a PC booting app with multiple solutions." android:textColor="#D0E8FF" android:textSize="18sp" android:gravity="center" android:paddingStart="32dp" android:paddingEnd="32dp" />
+    
+	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+
+</LinearLayout>

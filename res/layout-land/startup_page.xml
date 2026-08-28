@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#1c75ad">
+  
+  <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.25" />
+
+    <ViewFlipper android:id="@+id/viewflipper" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.5" >
+
+        <include layout="@layout/startup_slide_1" />
+
+        <include layout="@layout/startup_slide_2" />
+
+        <include layout="@layout/startup_slide_3" />
+
+        <include layout="@layout/startup_slide_4" />
+
+        <include layout="@layout/startup_slide_5" />
+
+    </ViewFlipper>
+
+    <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.1" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_horizontal">
+
+        <RadioGroup android:id="@+id/radiogroup" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center">
+
+            <RadioButton android:id="@+id/radio1" android:clickable="false" android:focusable="false" android:button="@drawable/radio_full_selector" android:background="@null" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:scaleX="0.4" android:scaleY="0.4" android:transformPivotX="0dp" />
+
+            <RadioButton android:id="@+id/radio2" android:clickable="false" android:focusable="false" android:button="@drawable/radio_full_selector" android:background="@null" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:scaleX="0.4" android:scaleY="0.4" android:transformPivotX="0dp" />
+
+            <RadioButton android:id="@+id/radio3" android:clickable="false" android:focusable="false" android:button="@drawable/radio_full_selector" android:background="@null" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:scaleX="0.4" android:scaleY="0.4" android:transformPivotX="0dp" />
+
+            <RadioButton android:id="@+id/radio4" android:clickable="false" android:focusable="false" android:button="@drawable/radio_full_selector" android:background="@null" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:scaleX="0.4" android:scaleY="0.4" android:transformPivotX="0dp" />
+
+            <RadioButton android:id="@+id/radio5" android:clickable="false" android:focusable="false" android:button="@drawable/radio_full_selector" android:background="@null" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:scaleX="0.4" android:scaleY="0.4" android:transformPivotX="0dp" />
+
+        </RadioGroup>
+
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+
+        <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="0.1" />
+
+        <Button android:id="@+id/button" style="?android:attr/borderlessButtonStyle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="left" android:text="&lt; BACK" android:backgroundTint="#1c75ad" />
+
+        <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="0.8" />
+
+        <Button android:id="@+id/button2" style="?android:attr/borderlessButtonStyle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="right" android:text="NEXT &gt;" android:backgroundTint="#1c75ad" />
+
+        <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="0.1" />
+
+    </LinearLayout>
+
+    <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.1" />
+
+</LinearLayout>

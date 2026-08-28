@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#1c75ad" android:gravity="center_horizontal" android:padding="24dp">
+    
+	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+    
+	<TextView android:id="@+id/grant_title4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Disable Battery Optimizations" android:textColor="#FFFFFF" android:textSize="28sp" android:textStyle="bold" android:gravity="center" />
+    
+	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.3" />
+    
+	<TextView android:id="@+id/desc5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Please disable battery optimizations to prevent the process from being interrupted in the background." android:textColor="#D0E8FF" android:textSize="16sp" android:gravity="center" android:paddingStart="16dp" android:paddingEnd="16dp" />
+    
+	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1.2" />
+    
+	<Button android:id="@+id/button6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:text="DISABLE" android:backgroundTint="#2563EB" />
+    
+	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.1" />
+
+</LinearLayout>
