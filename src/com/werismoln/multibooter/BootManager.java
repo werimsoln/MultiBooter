@@ -13,6 +13,8 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.net.Uri;
+import android.content.Intent;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -287,11 +289,26 @@ public class BootManager extends Activity {
 
                     closeDrawer();
 
-                    Toast.makeText(
-                        BootManager.this,
-                        "Buy Me a Coffee page will be added later.",
-                        Toast.LENGTH_SHORT
-                    ).show();
+                    Intent intent =
+                        new Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(
+                                "https://www.buymeacoffee.com/werismoln"
+                            )
+                        );
+
+                    try {
+
+                        startActivity(intent);
+
+                    } catch (Exception e) {
+
+                        Toast.makeText(
+                            BootManager.this,
+                            "Could not open Buy Me a Coffee.",
+                            Toast.LENGTH_SHORT
+                        ).show();
+			        }
                 }
             }
         );

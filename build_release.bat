@@ -91,18 +91,23 @@ mkdir gen
 mkdir obj
 mkdir r8-out
 mkdir lib\arm64-v8a
+mkdir lib\armeabi-v7a
+mkdir lib\x86
+mkdir lib\x86_64
 
 if not exist src\main\assets mkdir src\main\assets
 if exist src\main\assets\ffs_gadget del /f /q src\main\assets\ffs_gadget
+if exist src\main\assets\dnsmasq del /f /q src\main\assets\dnsmasq
+
 
 echo [OK] Temizlik tamam.
 echo.
 
 REM ============================================================
-REM NATIVE BUILD
+REM NATIVE BUILD - MULTI ABI
 REM ============================================================
 
-echo [2/13] Native kodlar derleniyor...
+echo [2/13] Native kodlar 4 ABI icin derleniyor...
 
 for %%F in (libgadget.c libscsi.c libtftp.c libexfat.c libfunctionfs.c) do (
     if not exist "jni\%%F" (
@@ -111,73 +116,155 @@ for %%F in (libgadget.c libscsi.c libtftp.c libexfat.c libfunctionfs.c) do (
     )
 )
 
-echo [NATIVE 1/5] libgadget.so
-"%CLANG%" --target=aarch64-linux-android%ANDROID_API% -shared -fPIC -O2 -Wall -Wextra "jni\libgadget.c" -o "lib\arm64-v8a\libgadget.so"
-if errorlevel 1 exit /b 1
+for %%A in (arm64-v8a armeabi-v7a x86 x86_64) do (
 
-echo [NATIVE 2/5] libscsi.so
-"%CLANG%" --target=aarch64-linux-android%ANDROID_API% -shared -fPIC -O2 -Wall -Wextra "jni\libscsi.c" -o "lib\arm64-v8a\libscsi.so"
-if errorlevel 1 exit /b 1
+    set "TARGET="
 
-echo [NATIVE 3/5] libtftp.so
-"%CLANG%" --target=aarch64-linux-android%ANDROID_API% -shared -fPIC -O2 -Wall -Wextra "jni\libtftp.c" -llog -o "lib\arm64-v8a\libtftp.so"
-if errorlevel 1 exit /b 1
+    if "%%A"=="arm64-v8a"   set "TARGET=aarch64-linux-android%ANDROID_API%"
+    if "%%A"=="armeabi-v7a" set "TARGET=armv7a-linux-androideabi%ANDROID_API%"
+    if "%%A"=="x86"          set "TARGET=i686-linux-android%ANDROID_API%"
+    if "%%A"=="x86_64"       set "TARGET=x86_64-linux-android%ANDROID_API%"
 
-echo [NATIVE 4/5] libexfat.so
-"%CLANG%" --target=aarch64-linux-android%ANDROID_API% -shared -fPIC -O2 -Wall -Wextra "jni\libexfat.c" -o "lib\arm64-v8a\libexfat.so"
-if errorlevel 1 exit /b 1
+    if not defined TARGET (
+        echo [ERROR] Bilinmeyen ABI: %%A
+        exit /b 1
+    )
 
-echo [NATIVE 5/5] libfunctionfs.so
-"%CLANG%" --target=aarch64-linux-android%ANDROID_API% -shared -fPIC -O2 -Wall -Wextra "jni\libfunctionfs.c" -pthread -llog -o "lib\arm64-v8a\libfunctionfs.so"
-if errorlevel 1 exit /b 1
+    echo.
+    echo [ABI %%A] Target: !TARGET!
 
-echo [OK] Native kodlar derlendi.
+    echo [%%A 1/5] libgadget.so
+    "%CLANG%" --target=!TARGET! -shared -fPIC -O2 -Wall -Wextra "jni\libgadget.c" -o "lib\%%A\libgadget.so"
+    if errorlevel 1 exit /b 1
+
+    echo [%%A 2/5] libscsi.so
+    "%CLANG%" --target=!TARGET! -shared -fPIC -O2 -Wall -Wextra "jni\libscsi.c" -o "lib\%%A\libscsi.so"
+    if errorlevel 1 exit /b 1
+
+    echo [%%A 3/5] libtftp.so
+    "%CLANG%" --target=!TARGET! -shared -fPIC -O2 -Wall -Wextra "jni\libtftp.c" -llog -o "lib\%%A\libtftp.so"
+    if errorlevel 1 exit /b 1
+
+    echo [%%A 4/5] libexfat.so
+    "%CLANG%" --target=!TARGET! -shared -fPIC -O2 -Wall -Wextra "jni\libexfat.c" -o "lib\%%A\libexfat.so"
+    if errorlevel 1 exit /b 1
+
+    echo [%%A 5/5] libfunctionfs.so
+    "%CLANG%" --target=!TARGET! -shared -fPIC -O2 -Wall -Wextra "jni\libfunctionfs.c" -pthread -llog -o "lib\%%A\libfunctionfs.so"
+    if errorlevel 1 exit /b 1
+)
+
+echo.
+echo [OK] Native kutuphaneler derlendi:
+echo      arm64-v8a
+echo      armeabi-v7a
+echo      x86
+echo      x86_64
 echo.
 
 REM ============================================================
-REM DNSMASQ
+REM DNSMASQ - MULTI ABI
 REM ============================================================
 
-echo [3/13] dnsmasq derleniyor...
+echo [3/13] dnsmasq 4 ABI icin derleniyor...
 
-if exist "src\native\dnsmasq\src\dnsmasq.c" (
-    REM Wildcard (*.c) problemini asmak icin response file olusturuyoruz
+set "DNSMASQ_SRC=src\native\dnsmasq\src"
+set "DNSMASQ_ASSETS=src\main\assets"
+
+if exist "%DNSMASQ_SRC%\dnsmasq.c" (
+
+    REM Tum dnsmasq C kaynaklarini tek response file icine yaz.
+    REM Windows path ayiraclarini clang icin / karakterine ceviriyoruz.
     > "dnsmasq_sources.rsp" (
-        for %%F in ("src\native\dnsmasq\src"\*.c) do (
+        for %%F in ("%DNSMASQ_SRC%"\*.c) do (
             set "FILE_PATH=%%~fF"
-            echo "!FILE_PATH:\=/!"
+            echo !FILE_PATH:\=/!
         )
     )
 
-    "%CLANG%" ^
-        --target=aarch64-linux-android%ANDROID_API% ^
-        -O2 ^
-        -fPIE ^
-        -pie ^
-        -DNO_IPV6 ^
-        -DNO_DBUS ^
-        -DVERSION=\"2.89\" ^
-        -DETHER_ADDR_LEN=6 ^
-        -Wno-macro-redefined ^
-        @"dnsmasq_sources.rsp" ^
-        -llog ^
-        -o "src\main\assets\dnsmasq"
+    for %%A in (arm64-v8a armeabi-v7a x86 x86_64) do (
 
-    if errorlevel 1 (
-        echo [ERROR] dnsmasq derlenemedi.
-        del /f /q "dnsmasq_sources.rsp" >nul 2>&1
-        exit /b 1
+        set "DNSMASQ_TARGET="
+        set "DNSMASQ_OUTPUT="
+
+        if "%%A"=="arm64-v8a" (
+            set "DNSMASQ_TARGET=aarch64-linux-android%ANDROID_API%"
+            set "DNSMASQ_OUTPUT=%DNSMASQ_ASSETS%\dnsmasq-arm64-v8a"
+        )
+
+        if "%%A"=="armeabi-v7a" (
+            set "DNSMASQ_TARGET=armv7a-linux-androideabi%ANDROID_API%"
+            set "DNSMASQ_OUTPUT=%DNSMASQ_ASSETS%\dnsmasq-armeabi-v7a"
+        )
+
+        if "%%A"=="x86" (
+            set "DNSMASQ_TARGET=i686-linux-android%ANDROID_API%"
+            set "DNSMASQ_OUTPUT=%DNSMASQ_ASSETS%\dnsmasq-x86"
+        )
+
+        if "%%A"=="x86_64" (
+            set "DNSMASQ_TARGET=x86_64-linux-android%ANDROID_API%"
+            set "DNSMASQ_OUTPUT=%DNSMASQ_ASSETS%\dnsmasq-x86_64"
+        )
+
+        if not defined DNSMASQ_TARGET (
+            echo [ERROR] Bilinmeyen dnsmasq ABI: %%A
+            del /f /q "dnsmasq_sources.rsp" >nul 2>&1
+            exit /b 1
+        )
+
+        echo.
+        echo [dnsmasq %%A] Target: !DNSMASQ_TARGET!
+
+        "%CLANG%" ^
+            --target=!DNSMASQ_TARGET! ^
+            -O2 ^
+            -fPIE ^
+            -pie ^
+            -DNO_IPV6 ^
+            -DNO_DBUS ^
+            -DVERSION=\"2.89\" ^
+            -DETHER_ADDR_LEN=6 ^
+            -Wno-macro-redefined ^
+            @"dnsmasq_sources.rsp" ^
+            -llog ^
+            -o "!DNSMASQ_OUTPUT!"
+
+        if errorlevel 1 (
+            echo [ERROR] dnsmasq %%A icin derlenemedi.
+            del /f /q "dnsmasq_sources.rsp" >nul 2>&1
+            exit /b 1
+        )
+
+        if not exist "!DNSMASQ_OUTPUT!" (
+            echo [ERROR] dnsmasq %%A cikti dosyasi olusmadi.
+            del /f /q "dnsmasq_sources.rsp" >nul 2>&1
+            exit /b 1
+        )
+
+        echo [OK] %%A dnsmasq hazir.
     )
+
     del /f /q "dnsmasq_sources.rsp" >nul 2>&1
+
 ) else (
-    if not exist "src\main\assets\dnsmasq" (
-        echo [ERROR] Ne dnsmasq kaynaklari ne de asset binary bulundu.
-        exit /b 1
+
+    echo [INFO] dnsmasq kaynaklari bulunamadi; mevcut 4 ABI asset kontrol ediliyor.
+
+    for %%A in (arm64-v8a armeabi-v7a x86 x86_64) do (
+        if not exist "%DNSMASQ_ASSETS%\dnsmasq-%%A" (
+            echo [ERROR] %DNSMASQ_ASSETS%\dnsmasq-%%A bulunamadi.
+            exit /b 1
+        )
     )
-    echo [INFO] dnsmasq kaynaklari yok; mevcut asset kullaniliyor.
 )
 
-echo [OK] dnsmasq hazir.
+echo.
+echo [OK] dnsmasq 4 ABI icin hazir:
+echo      dnsmasq-arm64-v8a
+echo      dnsmasq-armeabi-v7a
+echo      dnsmasq-x86
+echo      dnsmasq-x86_64
 echo.
 
 REM ============================================================
@@ -222,7 +309,7 @@ echo [6/13] Java kaynaklari derleniyor...
     for /r gen %%F in (*.java) do echo %%F
 ) > sources.txt
 
-javac -source 8 -target 8 -encoding UTF-8 -d obj -cp "%PLATFORM%" @sources.txt
+javac --release 8 -encoding UTF-8 -d obj -cp "%PLATFORM%" @sources.txt
 if errorlevel 1 exit /b 1
 
 echo [OK] Java derlendi.
@@ -301,8 +388,24 @@ echo [10/13] APK icerigi kontrol ediliyor...
 "%AAPT%" list app-unaligned.apk | findstr /x "classes.dex" >nul
 if errorlevel 1 ( echo [ERROR] classes.dex yok. & exit /b 1 )
 
-"%AAPT%" list app-unaligned.apk | findstr /x "lib/arm64-v8a/libfunctionfs.so" >nul
-if errorlevel 1 ( echo [ERROR] libfunctionfs.so yok. & exit /b 1 )
+for %%A in (arm64-v8a armeabi-v7a x86 x86_64) do (
+    for %%L in (libgadget.so libscsi.so libtftp.so libexfat.so libfunctionfs.so) do (
+        "%AAPT%" list app-unaligned.apk | findstr /x "lib/%%A/%%L" >nul
+        if errorlevel 1 (
+            echo [ERROR] lib/%%A/%%L APK icinde yok.
+            exit /b 1
+        )
+    )
+)
+
+
+for %%A in (arm64-v8a armeabi-v7a x86 x86_64) do (
+    "%AAPT%" list app-unaligned.apk | findstr /x "assets/dnsmasq-%%A" >nul
+    if errorlevel 1 (
+        echo [ERROR] assets/dnsmasq-%%A APK icinde yok.
+        exit /b 1
+    )
+)
 
 echo [OK] APK icerigi dogru.
 echo.
