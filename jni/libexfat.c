@@ -63,6 +63,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <jni.h>
 
 /* ------------------------------------------------------------------------- */
 /* PUBLIC BASIC TYPES                                                        */
@@ -2278,4 +2279,418 @@ const char *exfat_error_string(int error)
         default:
             return "unknown exFAT error";
     }
+}
+/* ------------------------------------------------------------------------- */
+/* ANDROID JNI BRIDGE                                                        */
+/* ------------------------------------------------------------------------- */
+
+/*
+ * Java side:
+ *
+ *   com.werismoln.multibooter.UsbVentoy
+ *
+ * Native entry point:
+ *
+ *   private native int nativeFormatExfat(
+ *       long partitionOffset,
+ *       long volumeLength,
+ *       int volumeSerial,
+ *       int bytesPerSectorShift,
+ *       int sectorsPerClusterShift
+ *   );
+ *
+ * Native -> Java callbacks:
+ *
+ *   private int writeSectorsFromNative(
+ *       long lba,
+ *       byte[] data,
+ *       int sectorCount
+ *   );
+ *
+ *   private int flushFromNative();
+ *
+ * exfat_format() executes synchronously on the same Java thread that enters
+ * nativeFormatExfat(). Therefore the JNIEnv pointer and the local jobject
+ * reference stored below remain valid for the complete formatter call.
+ */
+
+typedef struct {
+    JNIEnv *env;
+    jobject target;
+
+    jmethodID write_sectors_method;
+    jmethodID flush_method;
+
+    uint32_t bytes_per_sector;
+} exfat_jni_context;
+
+
+/*
+ * exfat_format() -> exfat_write_volume_sectors() -> this callback
+ *
+ * exfat_write_volume_sectors() has already added options.partition_offset,
+ * therefore lba is MEDIA-RELATIVE / physical for the current USB device.
+ *
+ * Return contract expected by the formatter:
+ *
+ *   0  success
+ *  !=0 failure
+ */
+static int exfat_jni_write_sectors(
+    void *opaque_context,
+    uint64_t lba,
+    const void *data,
+    uint32_t sector_count
+)
+{
+    exfat_jni_context *context;
+    uint64_t byte_count_64;
+    jbyteArray java_data;
+    jint java_result;
+
+    context =
+        (exfat_jni_context *)opaque_context;
+
+    if (
+        context == NULL ||
+        context->env == NULL ||
+        context->target == NULL ||
+        context->write_sectors_method == NULL ||
+        context->bytes_per_sector == 0u ||
+        data == NULL ||
+        sector_count == 0u
+    ) {
+        return -1;
+    }
+
+    /*
+     * Java long is signed. UsbVentoy validates the selected partition against
+     * its signed-long media capacity before entering native code, but retain
+     * this native-side guard as well.
+     */
+    if (lba > (uint64_t)INT64_MAX) {
+        return -1;
+    }
+
+    byte_count_64 =
+        (uint64_t)sector_count *
+        (uint64_t)context->bytes_per_sector;
+
+    /*
+     * NewByteArray takes a jsize (signed 32-bit on Android).
+     */
+    if (
+        byte_count_64 == 0u ||
+        byte_count_64 > (uint64_t)INT32_MAX
+    ) {
+        return -1;
+    }
+
+    /*
+     * Java callback sectorCount is jint.
+     */
+    if (sector_count > (uint32_t)INT32_MAX) {
+        return -1;
+    }
+
+    java_data =
+        (*context->env)->NewByteArray(
+            context->env,
+            (jsize)byte_count_64
+        );
+
+    if (java_data == NULL) {
+        /*
+         * OutOfMemoryError may already be pending. Returning failure causes
+         * exfat_format() to abort immediately.
+         */
+        return -1;
+    }
+
+    (*context->env)->SetByteArrayRegion(
+        context->env,
+        java_data,
+        0,
+        (jsize)byte_count_64,
+        (const jbyte *)data
+    );
+
+    if (
+        (*context->env)->ExceptionCheck(
+            context->env
+        )
+    ) {
+        /*
+         * Keep the Java exception pending. UsbVentoy.formatExfat() already
+         * catches Throwable around the native invocation.
+         */
+        return -1;
+    }
+
+    java_result =
+        (*context->env)->CallIntMethod(
+            context->env,
+            context->target,
+            context->write_sectors_method,
+            (jlong)lba,
+            java_data,
+            (jint)sector_count
+        );
+
+    if (
+        (*context->env)->ExceptionCheck(
+            context->env
+        )
+    ) {
+        /*
+         * Local references are automatically released when this native call
+         * returns. Avoid further JNI work while an exception is pending.
+         */
+        return -1;
+    }
+
+    (*context->env)->DeleteLocalRef(
+        context->env,
+        java_data
+    );
+
+    return
+        java_result == 0
+        ? 0
+        : -1;
+}
+
+
+/*
+ * exfat_format() -> io.flush -> this callback
+ */
+static int exfat_jni_flush(
+    void *opaque_context
+)
+{
+    exfat_jni_context *context;
+    jint java_result;
+
+    context =
+        (exfat_jni_context *)opaque_context;
+
+    if (
+        context == NULL ||
+        context->env == NULL ||
+        context->target == NULL ||
+        context->flush_method == NULL
+    ) {
+        return -1;
+    }
+
+    java_result =
+        (*context->env)->CallIntMethod(
+            context->env,
+            context->target,
+            context->flush_method
+        );
+
+    if (
+        (*context->env)->ExceptionCheck(
+            context->env
+        )
+    ) {
+        return -1;
+    }
+
+    return
+        java_result == 0
+        ? 0
+        : -1;
+}
+
+
+/*
+ * JNI signature:
+ *
+ * (JJIII)I
+ *
+ * Java:
+ *
+ * private native int nativeFormatExfat(
+ *     long partitionOffset,
+ *     long volumeLength,
+ *     int volumeSerial,
+ *     int bytesPerSectorShift,
+ *     int sectorsPerClusterShift
+ * );
+ */
+JNIEXPORT jint JNICALL
+Java_com_werismoln_multibooter_UsbVentoy_nativeFormatExfat(
+    JNIEnv *env,
+    jobject thiz,
+    jlong partitionOffset,
+    jlong volumeLength,
+    jint volumeSerial,
+    jint bytesPerSectorShift,
+    jint sectorsPerClusterShift
+)
+{
+    jclass usb_ventoy_class;
+
+    jmethodID write_sectors_method;
+    jmethodID flush_method;
+
+    exfat_jni_context context;
+    exfat_io io;
+    exfat_format_options options;
+
+    uint32_t bytes_per_sector;
+    int result;
+
+    if (
+        env == NULL ||
+        thiz == NULL
+    ) {
+        return (jint)EXFAT_ERROR_ARGUMENT;
+    }
+
+    /*
+     * Java validates these too. Native validation is retained so the JNI
+     * function is safe even if called independently in the future.
+     */
+    if (
+        partitionOffset < 0 ||
+        volumeLength <= 0
+    ) {
+        return (jint)EXFAT_ERROR_ARGUMENT;
+    }
+
+    if (
+        bytesPerSectorShift < 9 ||
+        bytesPerSectorShift > 12
+    ) {
+        return (jint)EXFAT_ERROR_GEOMETRY;
+    }
+
+    if (
+        sectorsPerClusterShift < 0 ||
+        sectorsPerClusterShift > 255
+    ) {
+        return (jint)EXFAT_ERROR_GEOMETRY;
+    }
+
+    /*
+     * 1 << 9 ... 1 << 12 => 512 ... 4096.
+     */
+    bytes_per_sector =
+        (uint32_t)1u <<
+        (uint32_t)bytesPerSectorShift;
+
+    usb_ventoy_class =
+        (*env)->GetObjectClass(
+            env,
+            thiz
+        );
+
+    if (usb_ventoy_class == NULL) {
+        return (jint)EXFAT_ERROR_ARGUMENT;
+    }
+
+    write_sectors_method =
+        (*env)->GetMethodID(
+            env,
+            usb_ventoy_class,
+            "writeSectorsFromNative",
+            "(J[BI)I"
+        );
+
+    if (write_sectors_method == NULL) {
+        /*
+         * A NoSuchMethodError will normally be pending here. Do not clear it:
+         * it is more useful to the Java caller than silently returning only
+         * EXFAT_ERROR_ARGUMENT.
+         */
+        return (jint)EXFAT_ERROR_ARGUMENT;
+    }
+
+    flush_method =
+        (*env)->GetMethodID(
+            env,
+            usb_ventoy_class,
+            "flushFromNative",
+            "()I"
+        );
+
+    if (flush_method == NULL) {
+        return (jint)EXFAT_ERROR_ARGUMENT;
+    }
+
+    memset(
+        &context,
+        0,
+        sizeof(context)
+    );
+
+    context.env =
+        env;
+
+    context.target =
+        thiz;
+
+    context.write_sectors_method =
+        write_sectors_method;
+
+    context.flush_method =
+        flush_method;
+
+    context.bytes_per_sector =
+        bytes_per_sector;
+
+    memset(
+        &io,
+        0,
+        sizeof(io)
+    );
+
+    io.context =
+        &context;
+
+    io.write_sectors =
+        exfat_jni_write_sectors;
+
+    io.flush =
+        exfat_jni_flush;
+
+    exfat_format_options_init(
+        &options
+    );
+
+    options.partition_offset =
+        (uint64_t)partitionOffset;
+
+    options.volume_length =
+        (uint64_t)volumeLength;
+
+    /*
+     * Java int is signed, but an exFAT serial is simply a 32-bit field.
+     * Casting preserves the complete bit pattern.
+     */
+    options.volume_serial =
+        (uint32_t)volumeSerial;
+
+    options.bytes_per_sector_shift =
+        (uint8_t)bytesPerSectorShift;
+
+    options.sectors_per_cluster_shift =
+        (uint8_t)sectorsPerClusterShift;
+
+    result =
+        exfat_format(
+            &io,
+            &options,
+            NULL
+        );
+
+    /*
+     * If a Java callback raised an exception, leave it pending. The Java
+     * UsbVentoy.formatExfat() wrapper catches Throwable and converts it into
+     * its own error state.
+     */
+    return (jint)result;
 }

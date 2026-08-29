@@ -12,14 +12,6 @@ import android.hardware.usb.UsbManager;
 
 import java.util.Map;
 
-/**
- * Generic raw USB Mass Storage transport used by Direct USB Writer mode.
- *
- * This class does not mount Android filesystems.  It talks directly to the
- * USB Mass Storage Bulk-Only Transport and issues SCSI commands.
- *
- * UsbVentoy can use the same transport concepts for its own raw-media work.
- */
 public class UsbMassStorage {
 
     public static final String ACTION_USB_PERMISSION =
@@ -266,11 +258,6 @@ public class UsbMassStorage {
         return ERROR_PERMISSION;
     }
 
-    /**
-     * Compatibility helper replacing the old Toast-driven connection logic.
-     *
-     * It returns a result code so the Activity can decide how to display UI.
-     */
     public int findAndConnectMassStorage() {
 
         UsbDevice found =
@@ -783,11 +770,6 @@ public class UsbMassStorage {
         return true;
     }
 
-    /**
-     * Compatibility replacement for the old public method.
-     *
-     * The device must already be opened through open()/findAndConnectMassStorage().
-     */
     public long getFlashDriveCapacity() {
 
         if (!isOpen()) {
@@ -804,12 +786,6 @@ public class UsbMassStorage {
         return totalSectors;
     }
 
-    /**
-     * Raw aligned WRITE(10).
-     *
-     * This method destroys whatever data currently occupies the target LBA
-     * range.
-     */
     public synchronized boolean writeDataToSector(
         long startLba,
         byte[] data

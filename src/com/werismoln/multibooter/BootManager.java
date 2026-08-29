@@ -20,16 +20,6 @@ import java.io.FileReader;
 
 public class BootManager extends Activity {
 
-    /*
-     * Boot mode IDs
-     *
-     * 0 = None
-     * 1 = Ventoy
-     * 2 = Direct USB Writer
-     * 3 = USB Gadget
-     * 4 = TFTP Server
-     * 5 = FunctionFS
-     */
     private static final int BOOT_NONE = 0;
     private static final int BOOT_VENTOY = 1;
     private static final int BOOT_USB_WRITER = 2;
@@ -43,16 +33,6 @@ public class BootManager extends Activity {
     private static final String STATE_SELECTED_BOOT = "selected_boot";
     private static final String STATE_DRAWER_OPEN = "drawer_open";
 
-    /*
-     * Boot cards
-     *
-     * XML:
-     * card_usb   -> Ventoy
-     * card_usb2  -> Direct USB Writer
-     * card_gadget
-     * card_tftp
-     * card_extra -> FunctionFS
-     */
     private LinearLayout cardVentoy;
     private LinearLayout cardUsbWriter;
     private LinearLayout cardGadget;
@@ -83,9 +63,6 @@ public class BootManager extends Activity {
 
         bindViews();
 
-        /*
-         * Activity yeniden oluşturulduysa seçim ve drawer durumunu geri al.
-         */
         if (savedInstanceState != null) {
 
             selectedBoot = savedInstanceState.getInt(
@@ -99,19 +76,11 @@ public class BootManager extends Activity {
             );
         }
 
-        /*
-         * MainActivity tarafından restored-data içine yazılan
-         * root-granted=true satırını kontrol et.
-         */
         isRootGranted = isRootGrantedSaved();
 
         configureBootCards();
         setupListeners();
 
-        /*
-         * Root yokken daha önce root isteyen bir kart seçilmiş olarak
-         * restore edilirse geçersiz seçimi temizle.
-         */
         if (
             !isRootGranted &&
             (
@@ -126,9 +95,6 @@ public class BootManager extends Activity {
         restoreSelectedBoot();
         updateContinueButton();
 
-        /*
-         * Drawer durumunu ekran döndürme sonrası animasyonsuz geri yükle.
-         */
         if (isDrawerOpen) {
             openDrawerImmediately();
         } else {
@@ -150,9 +116,6 @@ public class BootManager extends Activity {
         sideDrawer =
             (LinearLayout) findViewById(R.id.side_drawer);
 
-        /*
-         * XML kart eşlemesi.
-         */
         cardVentoy =
             (LinearLayout) findViewById(R.id.card_usb);
 
@@ -183,23 +146,9 @@ public class BootManager extends Activity {
 
     private void configureBootCards() {
 
-        /*
-         * ROOT GEREKTİRMEYEN KARTLAR
-         *
-         * Ventoy ve Direct USB Writer her zaman aktiftir.
-         */
         enableCard(cardVentoy);
         enableCard(cardUsbWriter);
 
-        /*
-         * ROOT GEREKTİREN KARTLAR
-         *
-         * USB Gadget
-         * TFTP
-         * FunctionFS
-         *
-         * Root yoksa üçü de pasif ve yarı saydam kalır.
-         */
         if (isRootGranted) {
 
             enableCard(cardGadget);
@@ -213,21 +162,12 @@ public class BootManager extends Activity {
             disableRootCard(cardFunctionFs);
         }
 
-        /*
-         * İlk görsel durum:
-         * Seçili olmayan kartlar 0.97 ölçeğinde.
-         */
         resetCardImmediately(cardVentoy);
         resetCardImmediately(cardUsbWriter);
         resetCardImmediately(cardGadget);
         resetCardImmediately(cardTftp);
         resetCardImmediately(cardFunctionFs);
 
-        /*
-         * Bütün kartlara aynı dokunma/seçim animasyonu.
-         *
-         * FunctionFS burada diğer kartlarla tamamen aynı davranışı alır.
-         */
         addTouchAnimation(
             cardVentoy,
             BOOT_VENTOY
@@ -270,9 +210,6 @@ public class BootManager extends Activity {
 
     private void setupListeners() {
 
-        /*
-         * Hamburger menu.
-         */
         btnMenu.setOnClickListener(
             new View.OnClickListener() {
 
@@ -288,9 +225,6 @@ public class BootManager extends Activity {
             }
         );
 
-        /*
-         * Drawer dışındaki karanlık alana basınca drawer kapanır.
-         */
         drawerOverlay.setOnClickListener(
             new View.OnClickListener() {
 
@@ -301,9 +235,6 @@ public class BootManager extends Activity {
             }
         );
 
-        /*
-         * Homepage zaten BootManager'ın bu ilk sayfasıdır.
-         */
         menuHomepage.setOnClickListener(
             new View.OnClickListener() {
 
@@ -314,9 +245,6 @@ public class BootManager extends Activity {
             }
         );
 
-        /*
-         *
-         */
         menuSettings.setOnClickListener(
             new View.OnClickListener() {
 
@@ -368,10 +296,6 @@ public class BootManager extends Activity {
             }
         );
 
-        /*
-         * CONTINUE basma animasyonu.
-         * XML'deki renk değiştirilmez.
-         */
         btnContinue.setOnTouchListener(
             new View.OnTouchListener() {
 
@@ -423,11 +347,6 @@ public class BootManager extends Activity {
         );
     }
 
-    /*
-     * ------------------------------------------------------------
-     * CARD TOUCH / SELECTION
-     * ------------------------------------------------------------
-     */
 
     private void addTouchAnimation(
         final View view,
@@ -443,10 +362,6 @@ public class BootManager extends Activity {
                     MotionEvent event
                 ) {
 
-                    /*
-                     * Root olmadığı için disabled olan Gadget/TFTP/
-                     * FunctionFS kartları hiçbir seçim işlemi yapamaz.
-                     */
                     if (!view.isEnabled()) {
                         return true;
                     }
@@ -457,9 +372,6 @@ public class BootManager extends Activity {
 
                             view.animate().cancel();
 
-                            /*
-                             * Parmağı basınca kart hafif küçülür.
-                             */
                             view.animate()
                                 .scaleX(0.95f)
                                 .scaleY(0.95f)
@@ -471,11 +383,6 @@ public class BootManager extends Activity {
 
                         case MotionEvent.ACTION_MOVE:
 
-                            /*
-                             * MOVE sırasında seçim yapılmaz.
-                             * ACTION_UP sırasında parmak hâlâ kartın
-                             * içindeyse seçim yapılır.
-                             */
                             return true;
 
 
@@ -520,12 +427,6 @@ public class BootManager extends Activity {
 
     private void selectBoot(int boot) {
 
-        /*
-         * İkinci root koruması.
-         *
-         * View disabled olsa bile programatik olarak yanlışlıkla
-         * çağrılırsa Gadget/TFTP/FunctionFS seçilemesin.
-         */
         if (
             (
                 boot == BOOT_GADGET ||
@@ -539,18 +440,12 @@ public class BootManager extends Activity {
 
         selectedBoot = boot;
 
-        /*
-         * Önce bütün kartları seçilmemiş duruma getir.
-         */
         resetCard(cardVentoy);
         resetCard(cardUsbWriter);
         resetCard(cardGadget);
         resetCard(cardTftp);
         resetCard(cardFunctionFs);
 
-        /*
-         * Seçilen kartı 1.00 ölçeğine getir.
-         */
         View selectedCard =
             getCardForBoot(boot);
 
@@ -639,12 +534,6 @@ public class BootManager extends Activity {
 
         view.animate().cancel();
 
-        /*
-         * Parmağı kart dışında bıraktığımızda:
-         *
-         * Kart zaten seçiliyse -> 1.00
-         * Seçili değilse      -> 0.97
-         */
         if (selectedBoot == boot) {
 
             view.animate()
@@ -680,9 +569,6 @@ public class BootManager extends Activity {
             return;
         }
 
-        /*
-         * Root olmadığı için disabled olan bir kart restore edilmesin.
-         */
         if (!selectedCard.isEnabled()) {
 
             selectedBoot = BOOT_NONE;
@@ -693,11 +579,6 @@ public class BootManager extends Activity {
         scaleSelectedImmediately(selectedCard);
     }
 
-    /*
-     * ------------------------------------------------------------
-     * CONTINUE
-     * ------------------------------------------------------------
-     */
 
     private void updateContinueButton() {
 
@@ -706,19 +587,11 @@ public class BootManager extends Activity {
 
         btnContinue.setEnabled(hasSelection);
 
-        /*
-         * Renk değiştirilmez.
-         * XML'deki #2563EB aynen kalır.
-         */
         btnContinue.setAlpha(1.0f);
     }
 
     private void continueWithSelectedBoot() {
 
-        /*
-         * Sonraki sayfalar hazır olduğunda sadece bu switch içindeki
-         * ilgili case'e Intent eklemek yeterli olacak.
-         */
         switch (selectedBoot) {
 
             case BOOT_VENTOY:
@@ -782,11 +655,6 @@ public class BootManager extends Activity {
         }
     }
 
-    /*
-     * ------------------------------------------------------------
-     * ROOT STATE
-     * ------------------------------------------------------------
-     */
 
     private boolean isRootGrantedSaved() {
 
@@ -840,25 +708,13 @@ public class BootManager extends Activity {
         return false;
     }
 
-    /*
-     * ------------------------------------------------------------
-     * DRAWER
-     * ------------------------------------------------------------
-     */
 
     private float getDrawerWidth() {
 
-        /*
-         * Drawer görünürse gerçek ölçüsü.
-         */
         if (sideDrawer.getWidth() > 0) {
             return sideDrawer.getWidth();
         }
 
-        /*
-         * İlk açılışta View henüz ölçülmemiş olabilir.
-         * XML'deki 260dp değeri LayoutParams içinde pixel olarak bulunur.
-         */
         if (
             sideDrawer.getLayoutParams() != null &&
             sideDrawer.getLayoutParams().width > 0
@@ -877,9 +733,6 @@ public class BootManager extends Activity {
         float drawerWidth =
             getDrawerWidth();
 
-        /*
-         * Drawer önce ekranın soluna yerleştirilir.
-         */
         sideDrawer.setTranslationX(
             -drawerWidth
         );
@@ -896,17 +749,11 @@ public class BootManager extends Activity {
 
         isDrawerOpen = true;
 
-        /*
-         * Soldan içeri kaydır.
-         */
         sideDrawer.animate()
             .translationX(0.0f)
             .setDuration(300)
             .start();
 
-        /*
-         * Overlay'i görünür hale getir.
-         */
         drawerOverlay.animate()
             .alpha(1.0f)
             .setDuration(300)
@@ -946,17 +793,11 @@ public class BootManager extends Activity {
         final float drawerWidth =
             getDrawerWidth();
 
-        /*
-         * Drawer'ı sola çıkar.
-         */
         sideDrawer.animate()
             .translationX(-drawerWidth)
             .setDuration(250)
             .start();
 
-        /*
-         * Overlay'i söndür.
-         */
         drawerOverlay.animate()
             .alpha(0.0f)
             .setDuration(250)
@@ -979,9 +820,6 @@ public class BootManager extends Activity {
                             );
                         }
 
-                        /*
-                         * Bir sonraki animasyona listener taşınmasın.
-                         */
                         drawerOverlay
                             .animate()
                             .setListener(null);
@@ -1013,11 +851,6 @@ public class BootManager extends Activity {
         isDrawerOpen = false;
     }
 
-    /*
-     * ------------------------------------------------------------
-     * ACTIVITY STATE
-     * ------------------------------------------------------------
-     */
 
     @Override
     public void onBackPressed() {

@@ -2,14 +2,6 @@ package com.werismoln.multibooter;
 
 import java.io.File;
 
-/**
- * Java wrapper for libgadget.so.
- *
- * The native JNI names already match this class:
- *
- * Java_com_werismoln_multibooter_UsbGadget_enableMassStorageNative
- * Java_com_werismoln_multibooter_UsbGadget_disableMassStorageNative
- */
 public final class UsbGadget {
 
     private static final boolean LIBRARY_LOADED;
@@ -34,9 +26,6 @@ public final class UsbGadget {
     private UsbGadget() {
     }
 
-    /*
-     * Keep these public to preserve the existing project API.
-     */
     public static native boolean enableMassStorageNative(
         String isoPath,
         boolean asCdRom
@@ -52,15 +41,6 @@ public final class UsbGadget {
         return lastError;
     }
 
-    /**
-     * Enables ConfigFS mass-storage gadget mode.
-     *
-     * The current libgadget.c implementation requires root / sufficient
-     * ConfigFS permissions and expects:
-     *
-     * /sys/kernel/config/usb_gadget/g1
-     * /sys/kernel/config/usb_gadget/g1/functions/mass_storage.0/lun.0
-     */
     public static boolean enableMassStorage(
         String isoOrImgPath,
         boolean asCdRom

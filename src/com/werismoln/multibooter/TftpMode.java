@@ -6,13 +6,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 
-/**
- * Java wrapper for the PXE/TFTP mode.
- *
- * The repository's libtftp.c exports JNI symbols for TftpNative, not
- * TftpMode.  Therefore this source contains a package-private TftpNative
- * bridge whose class name exactly matches the existing native symbols.
- */
 public final class TftpMode {
 
     private static final String DNSMASQ_ASSET = "dnsmasq";
@@ -46,12 +39,6 @@ public final class TftpMode {
         return lastError;
     }
 
-    /**
-     * Starts dnsmasq through libtftp.so.
-     *
-     * This mode requires root because the current native implementation
-     * configures the selected interface and starts dnsmasq through su.
-     */
     public static boolean startPxe(
         Context context,
         String interfaceName,
@@ -167,12 +154,6 @@ public final class TftpMode {
         }
     }
 
-    /**
-     * Copies the APK asset to the application's private files directory.
-     *
-     * It is deliberately refreshed on each start so an updated APK cannot
-     * accidentally keep an older previously-extracted dnsmasq binary.
-     */
     private static File prepareDnsmasq(
         Context context
     ) {
@@ -241,9 +222,6 @@ public final class TftpMode {
             }
         }
 
-        /*
-         * Java chmod first.
-         */
         if (
             !destination.setExecutable(
                 true,
@@ -251,10 +229,6 @@ public final class TftpMode {
             )
         ) {
 
-            /*
-             * Fall back to the same root environment this mode already
-             * requires.
-             */
             Process process = null;
 
             try {
@@ -315,12 +289,6 @@ public final class TftpMode {
     }
 }
 
-/**
- * JNI bridge name intentionally matches:
- *
- * Java_com_werismoln_multibooter_TftpNative_startPxeServer
- * Java_com_werismoln_multibooter_TftpNative_stopPxeServer
- */
 final class TftpNative {
 
     private TftpNative() {

@@ -2,13 +2,6 @@ package com.werismoln.multibooter;
 
 import java.io.File;
 
-/**
- * Java JNI wrapper for libfunctionfs.so.
- *
- * libfunctionfs.so contains the FunctionFS event loop and the read-only
- * USB Mass Storage BOT/SCSI backend. No standalone ffs_gadget executable
- * is required.
- */
 public final class FunctionFileSystem {
 
     private static final boolean LIBRARY_LOADED;
@@ -57,13 +50,6 @@ public final class FunctionFileSystem {
         return LIBRARY_LOADED;
     }
 
-    /**
-     * Mounts/prepares /dev/usb-ffs/multiboot through root when needed.
-     *
-     * The native library itself still runs as the normal application UID;
-     * the FunctionFS mount is prepared with endpoint ownership assigned to
-     * that UID/GID.
-     */
     public static boolean prepare() {
 
         if (!LIBRARY_LOADED) {
@@ -105,12 +91,6 @@ public final class FunctionFileSystem {
         }
     }
 
-    /**
-     * Starts the FunctionFS backend for a local filesystem ISO path.
-     *
-     * This remains a root-dependent feature because FunctionFS mount /
-     * ConfigFS setup requires privileged access on normal Android devices.
-     */
     public static boolean start(
         String isoPath
     ) {

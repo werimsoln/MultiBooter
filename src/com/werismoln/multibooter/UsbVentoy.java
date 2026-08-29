@@ -1,55 +1,3 @@
-/******************************************************************************
- * UsbVentoy.java
- *
- * Copyright (c) 2026, werismoln <vlkanblek@gmail.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 3 of the
- * License, or (at your option) any later version.
- *
- * MultiBooter - Ventoy / USB Mass Storage transport layer
- *
- * Architecture:
- *
- *   UsbVentoy.java
- *        |
- *        +--> Android UsbDeviceConnection
- *        |       |
- *        |       +--> USB Bulk-Only Transport
- *        |               |
- *        |               +--> SCSI READ CAPACITY(10)
- *        |               +--> SCSI WRITE(10)
- *        |               +--> SCSI SYNCHRONIZE CACHE(10)
- *        |
- *        +--> libscsi.so
- *        |       |
- *        |       +--> UsbScsiBridge.parseReadCapacity()
- *        |
- *        +--> libexfat.so
- *                |
- *                +--> nativeFormatExfat()
- *                        |
- *                        +--> exfat_format()
- *                                |
- *                                +--> write_sectors callback
- *                                        |
- *                                        +--> writeSectorsFromNative()
- *                                                |
- *                                                +--> SCSI WRITE(10)
- *
- * IMPORTANT:
- *
- * The current libexfat.c formatter is a pure C formatter core.  In order to
- * call nativeFormatExfat(), libexfat.c must also contain the JNI wrapper:
- *
- *   Java_com_werismoln_multibooter_UsbVentoy_nativeFormatExfat(...)
- *
- * That JNI wrapper should call exfat_format() and route its write_sectors
- * callback to this Java object's writeSectorsFromNative() method.
- *
- ******************************************************************************/
-
 package com.werismoln.multibooter;
 
 import android.app.PendingIntent;
@@ -69,12 +17,6 @@ import java.util.Map;
 
 public final class UsbVentoy {
 
-    /*
-     * ---------------------------------------------------------------------
-     * PUBLIC RESULT CODES
-     * ---------------------------------------------------------------------
-     */
-
     public static final int RESULT_OK = 0;
 
     public static final int ERROR_ARGUMENT = -1;
@@ -91,24 +33,6 @@ public final class UsbVentoy {
     public static final int ERROR_IO = -12;
     public static final int ERROR_NATIVE_EXFAT = -13;
     public static final int ERROR_EXFAT_LIBRARY_UNAVAILABLE = -14;
-
-    /*
-     * libexfat.c return codes are preserved when nativeFormatExfat()
-     * successfully enters the native formatter:
-     *
-     *   0  EXFAT_OK
-     *  -1  EXFAT_ERROR_ARGUMENT
-     *  -2  EXFAT_ERROR_GEOMETRY
-     *  -3  EXFAT_ERROR_MEMORY
-     *  -4  EXFAT_ERROR_IO
-     *  -5  EXFAT_ERROR_OVERFLOW
-     */
-
-    /*
-     * ---------------------------------------------------------------------
-     * USB / BOT / SCSI CONSTANTS
-     * ---------------------------------------------------------------------
-     */
 
     public static final String ACTION_USB_PERMISSION =
         "com.werismoln.multibooter.USB_PERMISSION";
@@ -132,33 +56,12 @@ public final class UsbVentoy {
     private static final int MASS_STORAGE_SUBCLASS_SCSI = 0x06;
     private static final int MASS_STORAGE_PROTOCOL_BOT = 0x50;
 
-    /*
-     * WRITE(10):
-     *
-     * LBA             = unsigned 32 bit
-     * Transfer Length = unsigned 16 bit
-     */
     private static final long MAX_WRITE10_LBA = 0xFFFFFFFFL;
     private static final int MAX_WRITE10_BLOCKS = 0xFFFF;
 
-    /*
-     * 128 blocks at 512-byte logical block size = 64 KiB.
-     *
-     * This keeps individual Android bulkTransfer() operations moderate.
-     */
     private static final int DEFAULT_TRANSFER_BLOCKS = 128;
 
-    /*
-     * exfat formatter special value:
-     * automatic sectors-per-cluster selection.
-     */
     public static final int EXFAT_AUTO_CLUSTER_SHIFT = 0xFF;
-
-    /*
-     * ---------------------------------------------------------------------
-     * NATIVE LIBRARY STATE
-     * ---------------------------------------------------------------------
-     */
 
     private static final boolean SCSI_LIBRARY_LOADED;
     private static final boolean EXFAT_LIBRARY_LOADED;
@@ -184,12 +87,6 @@ public final class UsbVentoy {
         EXFAT_LIBRARY_LOADED = exfatLoaded;
     }
 
-    /*
-     * ---------------------------------------------------------------------
-     * INSTANCE STATE
-     * ---------------------------------------------------------------------
-     */
-
     private final Context context;
     private final UsbManager usbManager;
 
@@ -205,12 +102,6 @@ public final class UsbVentoy {
     private int nextTag = 1;
 
     private volatile String lastError = "";
-
-    /*
-     * ---------------------------------------------------------------------
-     * CAPACITY RESULT
-     * ---------------------------------------------------------------------
-     */
 
     public static final class Capacity {
 
@@ -252,12 +143,6 @@ public final class UsbVentoy {
         }
     }
 
-    /*
-     * ---------------------------------------------------------------------
-     * CONSTRUCTOR
-     * ---------------------------------------------------------------------
-     */
-
     public UsbVentoy(Context context) {
 
         if (context == null) {
@@ -275,12 +160,6 @@ public final class UsbVentoy {
                 Context.USB_SERVICE
             );
     }
-
-    /*
-     * ---------------------------------------------------------------------
-     * LIBRARY STATE
-     * ---------------------------------------------------------------------
-     */
 
     public static boolean isScsiLibraryLoaded() {
         return SCSI_LIBRARY_LOADED;
@@ -307,16 +186,6 @@ public final class UsbVentoy {
         return code;
     }
 
-    /*
-     * ---------------------------------------------------------------------
-     * USB DEVICE DISCOVERY
-     * ---------------------------------------------------------------------
-     */
-
-    /**
-     * Finds the first USB Mass Storage device containing a BOT/SCSI
-     * interface.
-     */
     public UsbDevice findMassStorageDevice() {
 
         if (usbManager == null) {
@@ -353,9 +222,6 @@ public final class UsbVentoy {
         return null;
     }
 
-    /**
-     * Finds the BOT + SCSI transparent command-set interface.
-     */
     private UsbInterface findMassStorageInterface(
         UsbDevice usbDevice
     ) {
@@ -388,12 +254,6 @@ public final class UsbVentoy {
         return null;
     }
 
-    /*
-     * ---------------------------------------------------------------------
-     * USB PERMISSION
-     * ---------------------------------------------------------------------
-     */
-
     public boolean hasPermission(
         UsbDevice usbDevice
     ) {
@@ -406,11 +266,6 @@ public final class UsbVentoy {
             );
     }
 
-    /**
-     * Requests Android USB Host permission.
-     *
-     * The Activity/BroadcastReceiver should listen for ACTION_USB_PERMISSION.
-     */
     public int requestPermission(
         UsbDevice usbDevice
     ) {
@@ -446,9 +301,6 @@ public final class UsbVentoy {
                 ACTION_USB_PERMISSION
             );
 
-        /*
-         * Keep the permission broadcast inside our own application.
-         */
         intent.setPackage(
             context.getPackageName()
         );
@@ -472,12 +324,6 @@ public final class UsbVentoy {
             "USB permission was requested."
         );
     }
-
-    /*
-     * ---------------------------------------------------------------------
-     * OPEN / CLOSE
-     * ---------------------------------------------------------------------
-     */
 
     public int openFirstMassStorageDevice() {
 
@@ -643,11 +489,6 @@ public final class UsbVentoy {
         this.blockSize = 0;
         this.blockCount = 0;
 
-        /*
-         * BOT reset before the first command is not mandatory on every
-         * device, so do not reset a healthy interface here.
-         */
-
         Capacity capacity =
             readCapacity();
 
@@ -717,12 +558,6 @@ public final class UsbVentoy {
         return blockCount;
     }
 
-    /*
-     * ---------------------------------------------------------------------
-     * TAG HANDLING
-     * ---------------------------------------------------------------------
-     */
-
     private synchronized int allocateTag() {
 
         int tag =
@@ -734,12 +569,6 @@ public final class UsbVentoy {
 
         return tag;
     }
-
-    /*
-     * ---------------------------------------------------------------------
-     * BYTE ORDER HELPERS
-     * ---------------------------------------------------------------------
-     */
 
     private static void putLe32(
         byte[] buffer,
@@ -836,22 +665,6 @@ public final class UsbVentoy {
 
         return shift;
     }
-
-    /*
-     * ---------------------------------------------------------------------
-     * BOT CBW BUILDERS
-     * ---------------------------------------------------------------------
-     *
-     * These are intentionally generated correctly in Java.
-     *
-     * The repository's current libscsi.c exports
-     * UsbScsiBridge.generateWrite10CBW(), but its current byte-order
-     * conversion must be corrected before UsbVentoy should rely on it.
-     *
-     * libscsi.so is still used for parseReadCapacity(), matching the
-     * repository's existing JNI class name.
-     * ---------------------------------------------------------------------
-     */
 
     private static byte[] createCbw(
         int tag,
@@ -1040,12 +853,6 @@ public final class UsbVentoy {
         );
     }
 
-    /*
-     * ---------------------------------------------------------------------
-     * BULK TRANSFER HELPERS
-     * ---------------------------------------------------------------------
-     */
-
     private int bulkOutAll(
         byte[] buffer,
         int offset,
@@ -1121,12 +928,6 @@ public final class UsbVentoy {
 
         return transferred;
     }
-
-    /*
-     * ---------------------------------------------------------------------
-     * CSW VALIDATION
-     * ---------------------------------------------------------------------
-     */
 
     private boolean readAndValidateCsw(
         int expectedTag
@@ -1212,12 +1013,6 @@ public final class UsbVentoy {
         return true;
     }
 
-    /*
-     * ---------------------------------------------------------------------
-     * READ CAPACITY(10)
-     * ---------------------------------------------------------------------
-     */
-
     public synchronized Capacity readCapacity() {
 
         if (!isOpen()) {
@@ -1293,10 +1088,6 @@ public final class UsbVentoy {
                 4
             );
 
-        /*
-         * READ CAPACITY(10) returns FFFFFFFFh when READ CAPACITY(16)
-         * is required.
-         */
         if (
             lastLba == 0xFFFFFFFFL
         ) {
@@ -1330,9 +1121,6 @@ public final class UsbVentoy {
                 (int)logicalBlockLength
             );
 
-        /*
-         * exFAT BytesPerSectorShift supports 9..12.
-         */
         if (
             blockShift < 9 ||
             blockShift > 12
@@ -1348,11 +1136,6 @@ public final class UsbVentoy {
 
         long sectorsFromNative = -1;
 
-        /*
-         * Use the repository's current libscsi.so parser when available.
-         *
-         * It returns LastLBA + 1.
-         */
         if (SCSI_LIBRARY_LOADED) {
 
             try {
@@ -1371,10 +1154,6 @@ public final class UsbVentoy {
         long sectors =
             lastLba + 1L;
 
-        /*
-         * Native result is only accepted when it agrees with the response
-         * we parsed in Java.
-         */
         if (
             sectorsFromNative > 0 &&
             sectorsFromNative != sectors
@@ -1401,12 +1180,6 @@ public final class UsbVentoy {
             blockSize
         );
     }
-
-    /*
-     * ---------------------------------------------------------------------
-     * TEST UNIT READY
-     * ---------------------------------------------------------------------
-     */
 
     public synchronized boolean testUnitReady() {
 
@@ -1449,18 +1222,6 @@ public final class UsbVentoy {
         );
     }
 
-    /*
-     * ---------------------------------------------------------------------
-     * WRITE(10)
-     * ---------------------------------------------------------------------
-     */
-
-    /**
-     * Writes whole logical blocks to the USB Mass Storage device.
-     *
-     * WARNING:
-     * This is destructive raw media I/O.
-     */
     public synchronized boolean writeBlocks(
         long startLba,
         byte[] data,
@@ -1645,10 +1406,6 @@ public final class UsbVentoy {
         return true;
     }
 
-    /**
-     * Writes an arbitrary block-aligned byte array and automatically splits
-     * it into small WRITE(10) commands.
-     */
     public synchronized boolean writeData(
         long startLba,
         byte[] data
@@ -1741,26 +1498,6 @@ public final class UsbVentoy {
         return true;
     }
 
-    /*
-     * ---------------------------------------------------------------------
-     * ASSET -> RAW USB WRITER
-     * ---------------------------------------------------------------------
-     */
-
-    /**
-     * Writes one APK asset directly to the USB device beginning at startLba.
-     *
-     * The final partial block, if any, is zero-padded.
-     *
-     * Examples from the current project:
-     *
-     *   writeAssetToDisk("boot.img", ...)
-     *   writeAssetToDisk("core.img", ...)
-     *   writeAssetToDisk("ventoy.disk.img", ...)
-     *
-     * UsbVentoy deliberately does NOT guess where these images belong on
-     * the final Ventoy disk layout.  The caller must supply the correct LBA.
-     */
     public synchronized boolean writeAssetToDisk(
         String assetName,
         long startLba
@@ -1949,12 +1686,6 @@ public final class UsbVentoy {
         return total;
     }
 
-    /*
-     * ---------------------------------------------------------------------
-     * SYNCHRONIZE CACHE(10)
-     * ---------------------------------------------------------------------
-     */
-
     public synchronized boolean synchronizeCache() {
 
         if (!isOpen()) {
@@ -2003,25 +1734,6 @@ public final class UsbVentoy {
         return result;
     }
 
-    /*
-     * ---------------------------------------------------------------------
-     * libexfat.so JNI ENTRY POINT
-     * ---------------------------------------------------------------------
-     */
-
-    /**
-     * Native JNI wrapper to be implemented inside libexfat.so.
-     *
-     * Expected native flow:
-     *
-     *   Java nativeFormatExfat()
-     *       -> configure exfat_format_options
-     *       -> exfat_format()
-     *       -> exfat write_sectors callback
-     *       -> Java writeSectorsFromNative()
-     *
-     * partitionOffset and volumeLength are expressed in logical sectors.
-     */
     private native int nativeFormatExfat(
         long partitionOffset,
         long volumeLength,
@@ -2030,12 +1742,6 @@ public final class UsbVentoy {
         int sectorsPerClusterShift
     );
 
-    /**
-     * Formats a region of the currently opened USB device as exFAT.
-     *
-     * This method is synchronous and performs destructive raw writes.
-     * Call it from a worker thread, not the Android UI thread.
-     */
     public synchronized int formatExfat(
         long partitionOffset,
         long volumeLength,
@@ -2125,11 +1831,6 @@ public final class UsbVentoy {
 
             if (result == RESULT_OK) {
 
-                /*
-                 * The native exfat formatter may already invoke its flush
-                 * callback.  This extra cache synchronization is harmless
-                 * and gives the Java caller a clear completion boundary.
-                 */
                 if (!synchronizeCache()) {
 
                     return fail(
@@ -2167,12 +1868,6 @@ public final class UsbVentoy {
         }
     }
 
-    /**
-     * Convenience wrapper for formatting the complete media as one exFAT
-     * volume (super-floppy layout).
-     *
-     * Do NOT use this when a partition table must remain on the device.
-     */
     public synchronized int formatWholeDeviceExfat(
         int volumeSerial
     ) {
@@ -2192,25 +1887,6 @@ public final class UsbVentoy {
         );
     }
 
-    /*
-     * ---------------------------------------------------------------------
-     * CALLBACKS FOR libexfat.so
-     * ---------------------------------------------------------------------
-     */
-
-    /**
-     * Called by libexfat.so from its exfat write_sectors callback.
-     *
-     * IMPORTANT:
-     * lba is already MEDIA-RELATIVE / PHYSICAL for the currently opened USB
-     * device because libexfat.c adds partition_offset before invoking its
-     * writer callback.
-     *
-     * Native side return contract:
-     *
-     *   0  success
-     *  -1  failure
-     */
     @SuppressWarnings("unused")
     private synchronized int writeSectorsFromNative(
         long lba,
@@ -2238,9 +1914,6 @@ public final class UsbVentoy {
         return 0;
     }
 
-    /**
-     * Called by libexfat.so from its optional flush callback.
-     */
     @SuppressWarnings("unused")
     private synchronized int flushFromNative() {
 
@@ -2250,17 +1923,6 @@ public final class UsbVentoy {
             : -1;
     }
 
-    /*
-     * ---------------------------------------------------------------------
-     * OPTIONAL BOT RESET RECOVERY
-     * ---------------------------------------------------------------------
-     */
-
-    /**
-     * Performs the USB Mass Storage Bulk-Only Reset class request.
-     *
-     * This should be used for error recovery, not before every command.
-     */
     public synchronized boolean bulkOnlyReset() {
 
         if (
@@ -2276,14 +1938,6 @@ public final class UsbVentoy {
             return false;
         }
 
-        /*
-         * bmRequestType:
-         *
-         * Host-to-device | Class | Interface
-         * 0x00           | 0x20  | 0x01 = 0x21
-         *
-         * bRequest = FFh (Bulk-Only Mass Storage Reset)
-         */
         int result =
             connection.controlTransfer(
                 0x21,
@@ -2328,14 +1982,6 @@ public final class UsbVentoy {
             return;
         }
 
-        /*
-         * Standard CLEAR_FEATURE(ENDPOINT_HALT):
-         *
-         * bmRequestType = 0x02
-         * bRequest      = 0x01
-         * wValue        = 0
-         * wIndex        = endpoint address
-         */
         connection.controlTransfer(
             0x02,
             0x01,
@@ -2346,12 +1992,6 @@ public final class UsbVentoy {
             USB_TIMEOUT_MS
         );
     }
-
-    /*
-     * ---------------------------------------------------------------------
-     * ERROR TEXT
-     * ---------------------------------------------------------------------
-     */
 
     public static String errorToString(
         int code
@@ -2406,33 +2046,11 @@ public final class UsbVentoy {
 
             default:
 
-                /*
-                 * -1..-5 may also be the original libexfat formatter
-                 * return values.  getLastError() contains the immediate
-                 * operation-specific text.
-                 */
                 return "error code " + code;
         }
     }
 }
 
-/*
- * =========================================================================
- * JNI CLASS NAME REQUIRED BY THE REPOSITORY'S CURRENT libscsi.c
- * =========================================================================
- *
- * Current native symbols are named:
- *
- *   Java_com_werismoln_multibooter_UsbScsiBridge_generateWrite10CBW
- *   Java_com_werismoln_multibooter_UsbScsiBridge_parseReadCapacity
- *
- * Therefore this package-private top-level class intentionally lives in the
- * same UsbVentoy.java compilation unit.
- *
- * generateWrite10CBW() is declared for ABI compatibility with libscsi.so,
- * but UsbVentoy currently creates WRITE(10) CBWs in Java because the current
- * libscsi.c implementation needs its CDB byte-order generation corrected.
- */
 final class UsbScsiBridge {
 
     private UsbScsiBridge() {
