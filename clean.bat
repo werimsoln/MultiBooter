@@ -9,3 +9,7 @@ if exist *.zip del /f /q *.zip
 del /f /q *.idsig
 del /f /q debug.keystore
 del /f /q *.jar
+del /f /q src/main/assets/dnsmasq
+rmdir /s /q lib
+rmdir /s /q dex-out
+rmdir /s /q r8-out

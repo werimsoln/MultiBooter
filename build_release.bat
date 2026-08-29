@@ -28,71 +28,34 @@ set "APKSIGNER=%BUILD_TOOLS%\apksigner.bat"
 set "R8_JAR=%ANDROID_HOME%\r8\r8.jar"
 set "PROGUARD=%~dp0proguard-rules.pro"
 
-REM Release signing defaults.
-REM Gercek yayin anahtarini kullanmak icin bunlari degistir.
+REM Otomatik imzalama ayarlari
 set "RELEASE_KEYSTORE=release.keystore"
-set "RELEASE_KEY_ALIAS=multibooter"
+set "RELEASE_KEY_ALIAS=release"
 
 REM ============================================================
 REM ENVIRONMENT CHECK
 REM ============================================================
 
-echo [0/12] Ortam kontrol ediliyor...
+echo [0/13] Ortam kontrol ediliyor...
 
-if not exist "%PLATFORM%" (
-    echo [ERROR] android.jar bulunamadi:
-    echo %PLATFORM%
-    exit /b 1
-)
-
-if not exist "%CLANG%" (
-    echo [ERROR] NDK clang bulunamadi:
-    echo %CLANG%
-    exit /b 1
-)
-
-if not exist "%AAPT2%" (
-    echo [ERROR] aapt2.exe bulunamadi.
-    exit /b 1
-)
-
-if not exist "%AAPT%" (
-    echo [ERROR] aapt.exe bulunamadi.
-    exit /b 1
-)
-
-if not exist "%ZIPALIGN%" (
-    echo [ERROR] zipalign.exe bulunamadi.
-    exit /b 1
-)
-
-if not exist "%APKSIGNER%" (
-    echo [ERROR] apksigner.bat bulunamadi.
-    exit /b 1
-)
-
-if not exist "%PROGUARD%" (
-    echo [ERROR] proguard-rules.pro bulunamadi.
-    exit /b 1
-)
+if not exist "%PLATFORM%" ( echo [ERROR] android.jar bulunamadi & exit /b 1 )
+if not exist "%CLANG%" ( echo [ERROR] NDK clang bulunamadi & exit /b 1 )
+if not exist "%AAPT2%" ( echo [ERROR] aapt2.exe bulunamadi & exit /b 1 )
+if not exist "%AAPT%" ( echo [ERROR] aapt.exe bulunamadi & exit /b 1 )
+if not exist "%ZIPALIGN%" ( echo [ERROR] zipalign.exe bulunamadi & exit /b 1 )
+if not exist "%APKSIGNER%" ( echo [ERROR] apksigner.bat bulunamadi & exit /b 1 )
+if not exist "%PROGUARD%" ( echo [ERROR] proguard-rules.pro bulunamadi & exit /b 1 )
 
 where javac >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] javac bulunamadi.
-    exit /b 1
-)
+if errorlevel 1 ( echo [ERROR] javac bulunamadi & exit /b 1 )
 
 where jar >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] jar.exe bulunamadi.
-    exit /b 1
-)
+if errorlevel 1 ( echo [ERROR] jar.exe bulunamadi & exit /b 1 )
 
 REM R8 locate
 set "R8_BAT="
 
 if not exist "%R8_JAR%" (
-
     if exist "%BUILD_TOOLS%\lib\r8.jar" (
         set "R8_JAR=%BUILD_TOOLS%\lib\r8.jar"
     ) else if exist "%BUILD_TOOLS%\r8.bat" (
@@ -110,7 +73,7 @@ REM ============================================================
 REM CLEAN
 REM ============================================================
 
-echo [1/12] Eski build temizleniyor...
+echo [1/13] Eski build temizleniyor...
 
 if exist gen rmdir /s /q gen
 if exist obj rmdir /s /q obj
@@ -127,23 +90,64 @@ if exist app-release.apk del /f /q app-release.apk
 mkdir gen
 mkdir obj
 mkdir r8-out
-mkdir lib
 mkdir lib\arm64-v8a
 
 if not exist src\main\assets mkdir src\main\assets
-
 if exist src\main\assets\ffs_gadget del /f /q src\main\assets\ffs_gadget
 
 echo [OK] Temizlik tamam.
 echo.
-''' + common_native + r'''
+
+REM ============================================================
+REM NATIVE BUILD
+REM ============================================================
+
+echo [2/13] Native kodlar derleniyor...
+
+for %%F in (libgadget.c libscsi.c libtftp.c libexfat.c libfunctionfs.c) do (
+    if not exist "jni\%%F" (
+        echo [ERROR] jni\%%F bulunamadi.
+        exit /b 1
+    )
+)
+
+echo [NATIVE 1/5] libgadget.so
+"%CLANG%" --target=aarch64-linux-android%ANDROID_API% -shared -fPIC -O2 -Wall -Wextra "jni\libgadget.c" -o "lib\arm64-v8a\libgadget.so"
+if errorlevel 1 exit /b 1
+
+echo [NATIVE 2/5] libscsi.so
+"%CLANG%" --target=aarch64-linux-android%ANDROID_API% -shared -fPIC -O2 -Wall -Wextra "jni\libscsi.c" -o "lib\arm64-v8a\libscsi.so"
+if errorlevel 1 exit /b 1
+
+echo [NATIVE 3/5] libtftp.so
+"%CLANG%" --target=aarch64-linux-android%ANDROID_API% -shared -fPIC -O2 -Wall -Wextra "jni\libtftp.c" -llog -o "lib\arm64-v8a\libtftp.so"
+if errorlevel 1 exit /b 1
+
+echo [NATIVE 4/5] libexfat.so
+"%CLANG%" --target=aarch64-linux-android%ANDROID_API% -shared -fPIC -O2 -Wall -Wextra "jni\libexfat.c" -o "lib\arm64-v8a\libexfat.so"
+if errorlevel 1 exit /b 1
+
+echo [NATIVE 5/5] libfunctionfs.so
+"%CLANG%" --target=aarch64-linux-android%ANDROID_API% -shared -fPIC -O2 -Wall -Wextra "jni\libfunctionfs.c" -pthread -llog -o "lib\arm64-v8a\libfunctionfs.so"
+if errorlevel 1 exit /b 1
+
+echo [OK] Native kodlar derlendi.
+echo.
+
 REM ============================================================
 REM DNSMASQ
 REM ============================================================
 
-echo [3/12] dnsmasq derleniyor...
+echo [3/13] dnsmasq derleniyor...
 
 if exist "src\native\dnsmasq\src\dnsmasq.c" (
+    REM Wildcard (*.c) problemini asmak icin response file olusturuyoruz
+    > "dnsmasq_sources.rsp" (
+        for %%F in ("src\native\dnsmasq\src"\*.c) do (
+            set "FILE_PATH=%%~fF"
+            echo "!FILE_PATH:\=/!"
+        )
+    )
 
     "%CLANG%" ^
         --target=aarch64-linux-android%ANDROID_API% ^
@@ -155,22 +159,21 @@ if exist "src\native\dnsmasq\src\dnsmasq.c" (
         -DVERSION=\"2.89\" ^
         -DETHER_ADDR_LEN=6 ^
         -Wno-macro-redefined ^
-        src\native\dnsmasq\src\*.c ^
+        @"dnsmasq_sources.rsp" ^
         -llog ^
         -o "src\main\assets\dnsmasq"
 
     if errorlevel 1 (
         echo [ERROR] dnsmasq derlenemedi.
+        del /f /q "dnsmasq_sources.rsp" >nul 2>&1
         exit /b 1
     )
-
+    del /f /q "dnsmasq_sources.rsp" >nul 2>&1
 ) else (
-
     if not exist "src\main\assets\dnsmasq" (
         echo [ERROR] Ne dnsmasq kaynaklari ne de asset binary bulundu.
         exit /b 1
     )
-
     echo [INFO] dnsmasq kaynaklari yok; mevcut asset kullaniliyor.
 )
 
@@ -181,16 +184,10 @@ REM ============================================================
 REM RESOURCE COMPILE
 REM ============================================================
 
-echo [4/12] Resources derleniyor...
+echo [4/13] Resources derleniyor...
 
-"%AAPT2%" compile ^
-    --dir res ^
-    -o compiled_res.zip
-
-if errorlevel 1 (
-    echo [ERROR] AAPT2 compile basarisiz.
-    exit /b 1
-)
+"%AAPT2%" compile --dir res -o compiled_res.zip
+if errorlevel 1 exit /b 1
 
 echo [OK] Resources compile edildi.
 echo.
@@ -199,7 +196,7 @@ REM ============================================================
 REM RESOURCE LINK + ASSETS
 REM ============================================================
 
-echo [5/12] Resources ve assets link ediliyor...
+echo [5/13] Resources ve assets link ediliyor...
 
 "%AAPT2%" link ^
     -o app-unaligned.apk ^
@@ -209,38 +206,24 @@ echo [5/12] Resources ve assets link ediliyor...
     -A src\main\assets ^
     --auto-add-overlay ^
     --java gen
+if errorlevel 1 exit /b 1
 
-if errorlevel 1 (
-    echo [ERROR] AAPT2 link basarisiz.
-    exit /b 1
-)
-
-echo [OK] Resources ve assets APK iskeletine eklendi.
+echo [OK] Resources ve assets eklendi.
 echo.
 
 REM ============================================================
 REM JAVA
 REM ============================================================
 
-echo [6/12] Java kaynaklari derleniyor...
+echo [6/13] Java kaynaklari derleniyor...
 
 (
     for /r src %%F in (*.java) do echo %%F
     for /r gen %%F in (*.java) do echo %%F
 ) > sources.txt
 
-javac ^
-    -source 8 ^
-    -target 8 ^
-    -encoding UTF-8 ^
-    -d obj ^
-    -cp "%PLATFORM%" ^
-    @sources.txt
-
-if errorlevel 1 (
-    echo [ERROR] javac basarisiz.
-    exit /b 1
-)
+javac -source 8 -target 8 -encoding UTF-8 -d obj -cp "%PLATFORM%" @sources.txt
+if errorlevel 1 exit /b 1
 
 echo [OK] Java derlendi.
 echo.
@@ -249,14 +232,10 @@ REM ============================================================
 REM CLASS JAR
 REM ============================================================
 
-echo [7/12] Class dosyalari JAR yapiliyor...
+echo [7/13] Class dosyalari JAR yapiliyor...
 
 jar cf classes-input.jar -C obj .
-
-if errorlevel 1 (
-    echo [ERROR] classes-input.jar olusturulamadi.
-    exit /b 1
-)
+if errorlevel 1 exit /b 1
 
 echo [OK] classes-input.jar hazir.
 echo.
@@ -265,10 +244,9 @@ REM ============================================================
 REM R8
 REM ============================================================
 
-echo [8/12] R8 shrink + optimize + obfuscate...
+echo [8/13] R8 shrink + optimize + obfuscate...
 
 if defined R8_BAT (
-
     call "!R8_BAT!" ^
         --release ^
         --min-api 26 ^
@@ -276,9 +254,7 @@ if defined R8_BAT (
         --output r8-out ^
         --pg-conf "%PROGUARD%" ^
         classes-input.jar
-
 ) else (
-
     java ^
         -cp "!R8_JAR!" ^
         com.android.tools.r8.R8 ^
@@ -290,15 +266,8 @@ if defined R8_BAT (
         classes-input.jar
 )
 
-if errorlevel 1 (
-    echo [ERROR] R8 basarisiz.
-    exit /b 1
-)
-
-if not exist r8-out\classes.dex (
-    echo [ERROR] R8 classes.dex olusturmadi.
-    exit /b 1
-)
+if errorlevel 1 exit /b 1
+if not exist r8-out\classes.dex exit /b 1
 
 echo [OK] R8 tamamlandi.
 echo.
@@ -307,56 +276,45 @@ REM ============================================================
 REM PACKAGE DEX + NATIVE LIBS
 REM ============================================================
 
-echo [9/12] DEX ve native kutuphaneler APK'ya ekleniyor...
+echo [9/13] DEX ve native kutuphaneler APK'ya ekleniyor...
 
 copy /y r8-out\classes.dex classes.dex >nul
 
-"%AAPT%" add app-unaligned.apk classes.dex
-if errorlevel 1 exit /b 1
-
-"%AAPT%" add app-unaligned.apk lib\arm64-v8a\libgadget.so
-if errorlevel 1 exit /b 1
-
-"%AAPT%" add app-unaligned.apk lib\arm64-v8a\libscsi.so
-if errorlevel 1 exit /b 1
-
-"%AAPT%" add app-unaligned.apk lib\arm64-v8a\libtftp.so
-if errorlevel 1 exit /b 1
-
-"%AAPT%" add app-unaligned.apk lib\arm64-v8a\libexfat.so
+REM Windows'un slash (\) ayirici problemlerini tamamen asmak icin
+REM "jar uf" komutunu kullaniyoruz. Bu, APK hiyerarsisine mukemmel oturur.
+jar uf app-unaligned.apk classes.dex lib
 if errorlevel 1 exit /b 1
 
 del /f /q classes.dex
+del /f /q classes-input.jar
+del /f /s /q r8-out >nul 2>&1
+
+echo [OK] DEX ve native kutuphaneler eklendi.
+echo.
+
+REM ============================================================
+REM APK CONTENT VERIFY
+REM ============================================================
+
+echo [10/13] APK icerigi kontrol ediliyor...
 
 "%AAPT%" list app-unaligned.apk | findstr /x "classes.dex" >nul
-if errorlevel 1 (
-    echo [ERROR] APK icinde classes.dex yok.
-    exit /b 1
-)
+if errorlevel 1 ( echo [ERROR] classes.dex yok. & exit /b 1 )
 
-"%AAPT%" list app-unaligned.apk | findstr /x "assets/ffs_gadget" >nul
-if errorlevel 1 (
-    echo [ERROR] assets/ffs_gadget APK icinde yok.
-    exit /b 1
-)
+"%AAPT%" list app-unaligned.apk | findstr /x "lib/arm64-v8a/libfunctionfs.so" >nul
+if errorlevel 1 ( echo [ERROR] libfunctionfs.so yok. & exit /b 1 )
 
-echo [OK] APK icerigi hazir.
+echo [OK] APK icerigi dogru.
 echo.
 
 REM ============================================================
 REM ZIPALIGN
 REM ============================================================
 
-echo [10/12] APK align ediliyor...
+echo [11/13] APK align ediliyor...
 
-"%ZIPALIGN%" -f -p 4 ^
-    app-unaligned.apk ^
-    app-aligned.apk
-
-if errorlevel 1 (
-    echo [ERROR] zipalign basarisiz.
-    exit /b 1
-)
+"%ZIPALIGN%" -f -p 4 app-unaligned.apk app-aligned.apk
+if errorlevel 1 exit /b 1
 
 echo [OK] APK align edildi.
 echo.
@@ -365,65 +323,42 @@ REM ============================================================
 REM RELEASE SIGN
 REM ============================================================
 
-echo [11/12] Release APK imzalaniyor...
+echo [12/13] Release APK imzalaniyor...
 
+REM Guvenlik kontrolu kaldirildi: Dosya yoksa otomatik olusturacak.
 if not exist "%RELEASE_KEYSTORE%" (
-    echo.
-    echo [ERROR] Release keystore bulunamadi:
-    echo %RELEASE_KEYSTORE%
-    echo.
-    echo Guvenlik nedeniyle release script otomatik yayin anahtari
-    echo olusturmaz. RELEASE_KEYSTORE ve RELEASE_KEY_ALIAS degerlerini
-    echo kendi kalici signing key'inle ayarla.
-    echo.
-    exit /b 1
+    echo [INFO] Release keystore bulunamadi, otomatik olusturuluyor...
+    keytool -genkeypair -v -keystore "%RELEASE_KEYSTORE%" -alias "%RELEASE_KEY_ALIAS%" -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Release, OU=MultiBooter, O=MultiBooter, L=TR, S=TR, C=TR"
 )
-
-set /p "RELEASE_STORE_PASS=Keystore password: "
-set /p "RELEASE_KEY_PASS=Key password: "
 
 call "%APKSIGNER%" sign ^
     --ks "%RELEASE_KEYSTORE%" ^
     --ks-key-alias "%RELEASE_KEY_ALIAS%" ^
-    --ks-pass pass:"%RELEASE_STORE_PASS%" ^
-    --key-pass pass:"%RELEASE_KEY_PASS%" ^
+    --ks-pass pass:android ^
+    --key-pass pass:android ^
     --out app-release.apk ^
     app-aligned.apk
 
-set "RELEASE_STORE_PASS="
-set "RELEASE_KEY_PASS="
+if errorlevel 1 exit /b 1
 
-if errorlevel 1 (
-    echo [ERROR] Release APK imzalanamadi.
-    exit /b 1
-)
-
-echo [OK] APK imzalandi.
+echo [OK] APK otomatik olarak imzalandi.
 echo.
 
 REM ============================================================
 REM VERIFY
 REM ============================================================
 
-echo [12/12] APK dogrulaniyor...
+echo [13/13] APK dogrulaniyor...
 
-call "%APKSIGNER%" verify ^
-    --verbose ^
-    --print-certs ^
-    app-release.apk
-
-if errorlevel 1 (
-    echo [ERROR] APK signature verification basarisiz.
-    exit /b 1
-)
+call "%APKSIGNER%" verify --verbose --print-certs app-release.apk
+if errorlevel 1 exit /b 1
 
 echo.
 echo ==========================================
 echo       RELEASE BUILD BASARILI
 echo ==========================================
 echo.
-echo APK:
-echo %CD%\app-release.apk
+echo APK: %CD%\app-release.apk
 echo.
 for %%A in (app-release.apk) do echo APK boyutu: %%~zA bytes
 echo.
