@@ -59,8 +59,6 @@ if %errorlevel% neq 0 exit /b %errorlevel%
 %BUILD_TOOLS%\aapt.exe add app-unaligned.apk lib\arm64-v8a\libscsi.so
 if %errorlevel% neq 0 exit /b %errorlevel%
 
-%BUILD_TOOLS%\aapt.exe add app-unaligned.apk lib\arm64-v8a\libtftp.so
-if %errorlevel% neq 0 exit /b %errorlevel%
 
 %BUILD_TOOLS%\zipalign.exe -f -p 4 app-unaligned.apk app-aligned.apk
 if %errorlevel% neq 0 exit /b %errorlevel%
@@ -69,5 +67,5 @@ if not exist debug.keystore (
     keytool -genkeypair -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Test, OU=Test, O=Test, L=Test, S=Test, C=TR"
 )
 
-call %BUILD_TOOLS%\apksigner.bat sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out app-final.apk app-aligned.apk
+call %BUILD_TOOLS%\apksigner.bat sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out app-debug.apk app-aligned.apk
 if %errorlevel% neq 0 exit /b %errorlevel%

@@ -59,7 +59,7 @@ static int get_first_udc_name(char *buffer, size_t buf_size) {
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_werismoln_multibooter_NativeBridge_enableMassStorageNative(
+Java_com_werismoln_multibooter_UsbGadget_enableMassStorageNative(
         JNIEnv *env, jclass clazz, jstring isoPath, jboolean asCdRom) {
 
     const char *iso_c_str = (*env)->GetStringUTFChars(env, isoPath, NULL);
@@ -92,7 +92,7 @@ Java_com_werismoln_multibooter_NativeBridge_enableMassStorageNative(
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_werismoln_multibooter_NativeBridge_disableMassStorageNative(
+Java_com_werismoln_multibooter_UsbGadget_disableMassStorageNative(
         JNIEnv *env, jclass clazz) {
 
     write_to_file(GADGET_UDC_PATH, "\n");

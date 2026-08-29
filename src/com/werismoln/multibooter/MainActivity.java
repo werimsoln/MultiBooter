@@ -3,17 +3,14 @@ package com.werismoln.multibooter;
 import com.werismoln.multibooter.R;
 
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.RadioButton;
-import android.view.ViewGroup;
-import android.view.LayoutInflater;
 import android.widget.RadioGroup;
 import android.widget.Toast;
-import android.view.View.OnClickListener;
 import android.content.Intent;
 import android.view.MotionEvent;
 import android.widget.ViewFlipper;
@@ -25,657 +22,1036 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.Manifest;
-import android.widget.ImageView;
-import android.os.Handler;
-import android.os.Looper;
-import android.content.res.Configuration;
-import android.app.NotificationManager;
 import android.content.Context;
 import android.os.PowerManager;
+import android.view.animation.DecelerateInterpolator;
 
 import java.io.DataOutputStream;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileReader;
 import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 public class MainActivity extends Activity {
-  private boolean button3_pushed = false;
-  private boolean isRootGranted = false;
-  private boolean isStorageGranted = false;
-  private boolean isNotificationGranted = false;
-  private boolean isNotificationRequested = false;
-  private boolean isBatteryOptimizationDisabled = false;
-  private NotificationManager notificationManager;
 
-  @Override
-  protected void onCreate(Bundle savedInstanceState) {
+    private static final int REQUEST_STORAGE_PERMISSION = 100;
+    private static final int REQUEST_NOTIFICATION_PERMISSION = 101;
 
-    super.onCreate(savedInstanceState);
-    requestWindowFeature(Window.FEATURE_NO_TITLE);
+    private static final String STATE_FILE = "restored-data";
+    private static final String FLAG_ROOT_GRANTED = "root-granted=true";
+    private static final String FLAG_PERMISSIONS_GRANTED = "permissions-granted=true";
 
-    String data = "";
+    private boolean button3_pushed = false;
+    private boolean isRootGranted = false;
+    private boolean isStorageGranted = false;
+    private boolean isNotificationGranted = false;
+    private boolean isNotificationRequested = false;
+    private boolean isBatteryOptimizationDisabled = false;
 
-    File file = new File(getFilesDir(), "restored-data");
+    private NotificationManager notificationManager;
 
-    Intent intent = new Intent(MainActivity.this, BootManager.class);
+    private ViewFlipper viewflipper;
 
-    try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-      String line;
-      while ((line = br.readLine()) != null) {
-        if (line.trim().equals("permissions-granted=true")) {
-          startActivity(intent);
-          finish();
-        }
-      }
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+    private Button btnback;
+    private Button btnnext;
+    private Button btngrant;
+    private Button btngrant2;
+    private Button btngrant3;
+    private Button btngrant4;
 
-    setContentView(R.layout.startup_page);
+    private RadioGroup radiogroup;
+    private RadioButton radio1;
+    private RadioButton radio2;
+    private RadioButton radio3;
+    private RadioButton radio4;
+    private RadioButton radio5;
 
-    Button btnback = findViewById(R.id.button);
-    Button btnnext = findViewById(R.id.button2);
-    Button btngrant = findViewById(R.id.button3);
-    Button btngrant2 = findViewById(R.id.button4);
-    Button btngrant3 = findViewById(R.id.button5);
-    Button btngrant4 = findViewById(R.id.button6);
+    private final DecelerateInterpolator decelerateInterpolator =
+        new DecelerateInterpolator();
 
-    ViewFlipper viewflipper = findViewById(R.id.viewflipper);
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
 
-    RadioGroup radiogroup = findViewById(R.id.radiogroup);
-    RadioButton radio1 = findViewById(R.id.radio1);
-    RadioButton radio2 = findViewById(R.id.radio2);
-    RadioButton radio3 = findViewById(R.id.radio3);
-    RadioButton radio4 = findViewById(R.id.radio4);
-    RadioButton radio5 = findViewById(R.id.radio5);
+        super.onCreate(savedInstanceState);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
 
-    viewflipper.setInAnimation(MainActivity.this, R.anim.slide_in_right);
-    viewflipper.setOutAnimation(MainActivity.this, R.anim.slide_out_left);
-    radio1.setChecked(true);
-    radio1.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-    btnback.setText("");
-    btnback.setEnabled(false);
-
-    View.OnTouchListener touchblocker = new View.OnTouchListener() {
-      @Override
-      public boolean onTouch(View v, MotionEvent event) {
-        return true;
-      }
-    };
-
-    radio1.setOnTouchListener(touchblocker);
-    radio2.setOnTouchListener(touchblocker);
-    radio3.setOnTouchListener(touchblocker);
-    radio4.setOnTouchListener(touchblocker);
-    radio5.setOnTouchListener(touchblocker);
-
-    if (hasStoragePermission()) {
-      btngrant2.setText("GRANTED");
-      btngrant2.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#4CAF50")));
-      btngrant2.setEnabled(false);
-      isStorageGranted = true;
-    }
-
-    if (hasNotificationPermission()) {
-      btngrant3.setText("ALLOWED");
-      btngrant3.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#4CAF50")));
-      btngrant3.setEnabled(false);
-      isNotificationGranted = true;
-    }
-
-    if (hasBatteryOptimizationBeenDisabled()) {
-      btngrant4.setText("DISABLED");
-      btngrant4.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#4CAF50")));
-      btngrant4.setEnabled(false);
-      isBatteryOptimizationDisabled = true;
-    }
-
-    btnback.setOnClickListener(new View.OnClickListener() {
-      @Override
-
-      public void onClick(View v) {
-
-        viewflipper.setInAnimation(MainActivity.this, R.anim.slide_in_left);
-        viewflipper.setOutAnimation(MainActivity.this, R.anim.slide_out_right);
-
-        if (radio1.isChecked()) {
-          radio1.setChecked(true);
-        } else if (radio2.isChecked()) {
-          radio2.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio1.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          int current = viewflipper.getDisplayedChild();
-          viewflipper.setDisplayedChild(current - 1);
-          radio1.setChecked(true);
-          radio2.setChecked(false);
-          btnback.setText("");
-          btnback.setEnabled(false);
-        } else if (radio3.isChecked()) {
-          radio3.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio2.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          int current = viewflipper.getDisplayedChild();
-          viewflipper.setDisplayedChild(current - 1);
-          radio2.setChecked(true);
-          radio3.setChecked(false);
-          if (!btnnext.isEnabled() || btnnext.getText().toString().isEmpty()) {
-            btnnext.setText("NEXT >");
-            btnnext.setEnabled(true);
-          }
-        } else if (radio4.isChecked()) {
-          radio4.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio3.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          int current = viewflipper.getDisplayedChild();
-          viewflipper.setDisplayedChild(current - 1);
-          radio3.setChecked(true);
-          radio4.setChecked(false);
-          if (!btnnext.isEnabled() || btnnext.getText().toString().isEmpty()) {
-            btnnext.setText("NEXT >");
-            btnnext.setEnabled(true);
-          }
-        } else if (radio5.isChecked()) {
-          radio5.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio4.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          int current = viewflipper.getDisplayedChild();
-          viewflipper.setDisplayedChild(current - 1);
-          radio4.setChecked(true);
-          radio5.setChecked(false);
-          if (btnnext.getText().toString() == "FINISH" || !btnnext.isEnabled() || btnnext.getText().toString().isEmpty()) {
-            btnnext.setText("NEXT >");
-            btnnext.setEnabled(true);
-          }
+        if (hasSavedFlag(FLAG_PERMISSIONS_GRANTED)) {
+            openBootManager();
+            return;
         }
 
-      }
+        setContentView(R.layout.startup_page);
 
-    });
+        bindViews();
 
-    btnnext.setOnClickListener(new View.OnClickListener() {
+        isRootGranted = hasSavedFlag(FLAG_ROOT_GRANTED);
 
-      @Override
-      public void onClick(View v) {
+        int savedPage = 0;
 
-        viewflipper.setInAnimation(MainActivity.this, R.anim.slide_in_right);
-        viewflipper.setOutAnimation(MainActivity.this, R.anim.slide_out_left);
-
-        if (radio1.isChecked()) {
-          radio1.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio2.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          viewflipper.showNext();
-          radio1.setChecked(false);
-          radio2.setChecked(true);
-          btnback.setText("< BACK");
-          btnback.setEnabled(true);
-        } else if (radio2.isChecked()) {
-          radio2.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio3.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          viewflipper.showNext();
-          radio2.setChecked(false);
-          radio3.setChecked(true);
-          if (!isStorageGranted) {
-            btnnext.setText("");
-            btnnext.setEnabled(false);
-          }
-        } else if (radio3.isChecked()) {
-          radio3.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio4.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          viewflipper.showNext();
-          radio3.setChecked(false);
-          radio4.setChecked(true);
-          if (!isNotificationGranted) {
-            btnnext.setText("");
-            btnnext.setEnabled(false);
-          }
-        } else if (radio4.isChecked()) {
-          radio4.animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          radio5.animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-          viewflipper.showNext();
-          radio4.setChecked(false);
-          radio5.setChecked(true);
-          btnnext.setText("FINISH");
-          if (!isBatteryOptimizationDisabled) {
-            btnnext.setText("");
-            btnnext.setEnabled(false);
-          }
-        } else if (radio5.isChecked()) {
-          try {
-            String data = "permissions-granted=true\n";
-            FileOutputStream fos2 = new FileOutputStream(new File(getFilesDir(), "restored-data"), true);
-            fos2.write(data.getBytes("UTF-8"));
-            fos2.close();
-          } catch (Exception e) {
-            e.printStackTrace();
-          }
-          startActivity(intent);
-          finish();
+        if (savedInstanceState != null) {
+            savedPage = savedInstanceState.getInt("SAVED_PAGE_INDEX", 0);
+            button3_pushed = savedInstanceState.getBoolean("BUTTON3_PUSHED", false);
+            isNotificationRequested =
+                savedInstanceState.getBoolean("NOTIFICATION_REQUESTED", false);
         }
 
-      }
+        if (savedPage < 0 || savedPage > 4) {
+            savedPage = 0;
+        }
 
-    });
+        setupRadioButtons();
+        setupClickListeners();
+        setupTouchAnimations();
 
-    btngrant.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View v) {
-        btngrant.setEnabled(false);
-        button3_pushed = true;
-        new Thread(new Runnable() {
-          @Override
-          public void run() {
-            boolean grantedResult = requestRootPermission();
+        refreshPermissionStates();
+        updateGrantButtons();
 
-            runOnUiThread(new Runnable() {
-              @Override
-              public void run() {
+        viewflipper.setDisplayedChild(savedPage);
+        updateUI(savedPage, false);
+    }
 
-                isRootGranted = grantedResult;
+    private void bindViews() {
 
-                if (isRootGranted) {
-                  btngrant.setEnabled(false);
-                  btngrant.setText("GRANTED");
-                  btngrant.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#4CAF50")));
-                  try {
-                    DataOutputStream os2 = null;
-                    Process process2 = Runtime.getRuntime().exec("sh");
-                    os2 = new DataOutputStream(process2.getOutputStream());
-                    os2.writeBytes("echo \"root-granted=true\" > /data/data/com.werismoln.multibooter/files/restored-data\n");
-                    os2.writeBytes("exit\n");
-                    os2.flush();
-                  } catch (Exception e) {
-                    e.printStackTrace();
-                  }
-                } else {
-                  Toast.makeText(MainActivity.this, "Please check if this device is rooted and try again!", Toast.LENGTH_LONG).show();
-                  btngrant.setEnabled(true);
-                  btngrant.setText("TRY AGAIN");
-                  btngrant.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#E53935")));
+        btnback = (Button) findViewById(R.id.button);
+        btnnext = (Button) findViewById(R.id.button2);
+        btngrant = (Button) findViewById(R.id.button3);
+        btngrant2 = (Button) findViewById(R.id.button4);
+        btngrant3 = (Button) findViewById(R.id.button5);
+        btngrant4 = (Button) findViewById(R.id.button6);
+
+        viewflipper = (ViewFlipper) findViewById(R.id.viewflipper);
+
+        radiogroup = (RadioGroup) findViewById(R.id.radiogroup);
+        radio1 = (RadioButton) findViewById(R.id.radio1);
+        radio2 = (RadioButton) findViewById(R.id.radio2);
+        radio3 = (RadioButton) findViewById(R.id.radio3);
+        radio4 = (RadioButton) findViewById(R.id.radio4);
+        radio5 = (RadioButton) findViewById(R.id.radio5);
+    }
+
+    private void setupRadioButtons() {
+
+        View.OnTouchListener touchblocker = new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                return true;
+            }
+        };
+
+        radio1.setOnTouchListener(touchblocker);
+        radio2.setOnTouchListener(touchblocker);
+        radio3.setOnTouchListener(touchblocker);
+        radio4.setOnTouchListener(touchblocker);
+        radio5.setOnTouchListener(touchblocker);
+    }
+
+    private void setupClickListeners() {
+
+        btnback.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                goBack();
+            }
+        });
+
+        btnnext.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                goNext();
+            }
+        });
+
+        btngrant.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                requestRoot();
+            }
+        });
+
+        btngrant2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!hasStoragePermission()) {
+                    requestStoragePermission();
                 }
-              }
-            });
-          }
-        }).start();
-      }
-    });
+            }
+        });
 
-    btngrant2.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View v) {
-        if (!hasStoragePermission()) {
-          requestStoragePermission();
+        btngrant3.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!hasNotificationPermission()) {
+                    requestNotificationPermission();
+                }
+            }
+        });
+
+        btngrant4.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                disableBatteryOptimization();
+            }
+        });
+    }
+
+    private void setupTouchAnimations() {
+
+        View.OnTouchListener buttonTouchListener = new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    v.animate().cancel();
+                    v.setAlpha(0.4f);
+                } else if (
+                    event.getAction() == MotionEvent.ACTION_UP ||
+                    event.getAction() == MotionEvent.ACTION_CANCEL
+                ) {
+                    v.animate()
+                        .alpha(1.0f)
+                        .setDuration(300)
+                        .start();
+                }
+
+                return false;
+            }
+        };
+
+        btnback.setOnTouchListener(buttonTouchListener);
+        btnnext.setOnTouchListener(buttonTouchListener);
+        btngrant.setOnTouchListener(buttonTouchListener);
+        btngrant2.setOnTouchListener(buttonTouchListener);
+        btngrant3.setOnTouchListener(buttonTouchListener);
+        btngrant4.setOnTouchListener(buttonTouchListener);
+    }
+
+    private void goNext() {
+
+        int current = viewflipper.getDisplayedChild();
+
+        /*
+         * 0 = Welcome
+         * 1 = Root
+         * 2 = Storage
+         * 3 = Notification
+         * 4 = Battery Optimization
+         */
+
+        if (current == 2 && !hasStoragePermission()) {
+            return;
         }
-      }
-    });
 
-    btngrant3.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View v) {
-        if (!hasNotificationPermission() && Build.VERSION.SDK_INT >= 33) {
-          requestNotificationPermission();
+        if (current == 3 && !hasNotificationPermission()) {
+            return;
         }
-      }
-    });
 
-    btngrant4.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View v) {
-        disableBatteryOptimization();
-      }
-    });
+        if (current == 4) {
 
-    btnback.setOnTouchListener((v, event) -> {
-      if (event.getAction() == MotionEvent.ACTION_DOWN) {
-        v.setAlpha(0.4f);
-      } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-        v.animate().alpha(1.0f).setDuration(300).start();
-      }
-      return false;
-    });
+            if (!hasBatteryOptimizationBeenDisabled()) {
+                return;
+            }
 
-    btnnext.setOnTouchListener((v, event) -> {
-      if (event.getAction() == MotionEvent.ACTION_DOWN) {
-        v.setAlpha(0.4f);
-      } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-        v.animate().alpha(1.0f).setDuration(300).start();
-      }
-      return false;
+            finishSetup();
+            return;
+        }
 
-    });
+        if (current < 4) {
+            viewflipper.setInAnimation(
+                MainActivity.this,
+                R.anim.slide_in_right
+            );
 
-    btngrant.setOnTouchListener((v, event) -> {
-      if (event.getAction() == MotionEvent.ACTION_DOWN) {
-        v.setAlpha(0.4f);
-      } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-        v.animate().alpha(1.0f).setDuration(300).start();
-      }
-      return false;
+            viewflipper.setOutAnimation(
+                MainActivity.this,
+                R.anim.slide_out_left
+            );
 
-    });
-
-    btngrant2.setOnTouchListener((v, event) -> {
-      if (event.getAction() == MotionEvent.ACTION_DOWN) {
-        v.setAlpha(0.4f);
-      } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-        v.animate().alpha(1.0f).setDuration(300).start();
-      }
-      return false;
-
-    });
-
-    btngrant3.setOnTouchListener((v, event) -> {
-      if (event.getAction() == MotionEvent.ACTION_DOWN) {
-        v.setAlpha(0.4f);
-      } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-        v.animate().alpha(1.0f).setDuration(300).start();
-      }
-      return false;
-
-    });
-
-    btngrant4.setOnTouchListener((v, event) -> {
-      if (event.getAction() == MotionEvent.ACTION_DOWN) {
-        v.setAlpha(0.4f);
-      } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-        v.animate().alpha(1.0f).setDuration(300).start();
-      }
-      return false;
-
-    });
-
-    if (savedInstanceState == null) {
-      viewflipper.setDisplayedChild(0);
-      updateUI(0);
+            int next = current + 1;
+            viewflipper.setDisplayedChild(next);
+            updateUI(next, true);
+        }
     }
 
-  }
+    private void goBack() {
 
-  @Override
-  protected void onResume() {
-    super.onResume();
+        int current = viewflipper.getDisplayedChild();
 
-    Button btngrant4 = findViewById(R.id.button6);
-    Button btngrant3 = findViewById(R.id.button5);
-    Button btngrant2 = findViewById(R.id.button4);
-    Button btnnext = findViewById(R.id.button2);
-    RadioButton radio5 = findViewById(R.id.radio5);
-    RadioButton radio4 = findViewById(R.id.radio4);
-    RadioButton radio3 = findViewById(R.id.radio3);
+        if (current <= 0) {
+            return;
+        }
 
-    if (radio3.isChecked() && btngrant2 != null && hasStoragePermission()) {
+        viewflipper.setInAnimation(
+            MainActivity.this,
+            R.anim.slide_in_left
+        );
 
-      btngrant2.setEnabled(false);
-      btngrant2.setText("GRANTED");
-      btngrant2.setBackgroundTintList(
-        ColorStateList.valueOf(
-          Color.parseColor("#4CAF50")
-        )
-      );
-      btnnext.setEnabled(true);
-      btnnext.setText("NEXT >");
-      isStorageGranted = true;
-    }
-    if (radio4.isChecked() && btngrant3 != null && hasNotificationPermission()) {
+        viewflipper.setOutAnimation(
+            MainActivity.this,
+            R.anim.slide_out_right
+        );
 
-      btngrant3.setEnabled(false);
-      btngrant3.setText("ALLOWED");
-      btngrant3.setBackgroundTintList(
-        ColorStateList.valueOf(
-          Color.parseColor("#4CAF50")
-        )
-      );
-      btnnext.setEnabled(true);
-      btnnext.setText("NEXT >");
-      isNotificationGranted = true;
+        int previous = current - 1;
+        viewflipper.setDisplayedChild(previous);
+        updateUI(previous, true);
     }
 
-    if (radio5.isChecked() && btngrant4 != null && hasNotificationPermission()) {
+    private void updateUI(int position, boolean animate) {
 
-      btngrant4.setEnabled(false);
-      btngrant4.setText("DISABLED");
-      btngrant4.setBackgroundTintList(
-        ColorStateList.valueOf(
-          Color.parseColor("#4CAF50")
-        )
-      );
-      btnnext.setEnabled(true);
-      btnnext.setText("FINISH");
-      isBatteryOptimizationDisabled = true;
+        updateRadioIndicators(position, animate);
+
+        if (position == 0) {
+            btnback.setText("");
+            btnback.setEnabled(false);
+        } else {
+            btnback.setText("< BACK");
+            btnback.setEnabled(true);
+        }
+
+        switch (position) {
+
+            case 0:
+            case 1:
+                btnnext.setText("NEXT >");
+                btnnext.setEnabled(true);
+                break;
+
+            case 2:
+                isStorageGranted = hasStoragePermission();
+
+                if (isStorageGranted) {
+                    btnnext.setText("NEXT >");
+                    btnnext.setEnabled(true);
+                } else {
+                    btnnext.setText("");
+                    btnnext.setEnabled(false);
+                }
+                break;
+
+            case 3:
+                isNotificationGranted = hasNotificationPermission();
+
+                if (isNotificationGranted) {
+                    btnnext.setText("NEXT >");
+                    btnnext.setEnabled(true);
+                } else {
+                    btnnext.setText("");
+                    btnnext.setEnabled(false);
+                }
+                break;
+
+            case 4:
+                isBatteryOptimizationDisabled =
+                    hasBatteryOptimizationBeenDisabled();
+
+                if (isBatteryOptimizationDisabled) {
+                    btnnext.setText("FINISH");
+                    btnnext.setEnabled(true);
+                } else {
+                    btnnext.setText("");
+                    btnnext.setEnabled(false);
+                }
+                break;
+        }
     }
 
-  }
+    private void updateRadioIndicators(int position, boolean animate) {
 
-  private void requestStoragePermission() {
+        RadioButton[] radios = {
+            radio1,
+            radio2,
+            radio3,
+            radio4,
+            radio5
+        };
 
-    try {
-      Intent intent = new Intent(
-        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
-      );
+        for (int i = 0; i < radios.length; i++) {
 
-      intent.setData(
-        Uri.parse("package:" + getPackageName())
-      );
+            RadioButton radio = radios[i];
 
-      startActivity(intent);
+            boolean selected = (i == position);
 
-    } catch (Exception e) {
+            radio.setChecked(selected);
+            radio.animate().cancel();
 
-      Intent intent = new Intent(
-        Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION
-      );
+            float scale = selected ? 0.5f : 0.4f;
 
-      startActivity(intent);
-    }
-  }
-
-  private void requestNotificationPermission() {
-    if (!isNotificationRequested && !shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)) {
-      requestPermissions(new String[] {
-        Manifest.permission.POST_NOTIFICATIONS
-      }, 101);
-      isNotificationRequested = true;
-    } else {
-      Toast.makeText(this, "Please enable notifications from notification settings.", Toast.LENGTH_LONG).show();
-      Intent intent2 = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
-      intent2.putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
-      startActivity(intent2);
-    }
-  }
-
-  private boolean hasStoragePermission() {
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-
-      return Environment.isExternalStorageManager();
-
-    } else {
-
-      return checkSelfPermission(
-        Manifest.permission.WRITE_EXTERNAL_STORAGE
-      ) == PackageManager.PERMISSION_GRANTED;
-    }
-  }
-
-  @Override
-  protected void onSaveInstanceState(Bundle outState) {
-    ViewFlipper viewflipper = findViewById(R.id.viewflipper);
-    super.onSaveInstanceState(outState);
-
-    outState.putBoolean("IS_ROOT_GRANTED", isRootGranted);
-    outState.putBoolean("BUTTON3_PUSHED", button3_pushed);
-
-    if (viewflipper != null) {
-
-      outState.putInt("SAVED_PAGE_INDEX", viewflipper.getDisplayedChild());
-
+            if (animate) {
+                radio.animate()
+                    .alpha(1.0f)
+                    .scaleX(scale)
+                    .scaleY(scale)
+                    .setDuration(250)
+                    .setInterpolator(decelerateInterpolator)
+                    .start();
+            } else {
+                radio.setAlpha(1.0f);
+                radio.setScaleX(scale);
+                radio.setScaleY(scale);
+            }
+        }
     }
 
-  }
+    private void refreshPermissionStates() {
 
-  @Override
-  protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        isRootGranted = hasSavedFlag(FLAG_ROOT_GRANTED);
+        isStorageGranted = hasStoragePermission();
+        isNotificationGranted = hasNotificationPermission();
+        isBatteryOptimizationDisabled =
+            hasBatteryOptimizationBeenDisabled();
+    }
 
-    ViewFlipper viewflipper = findViewById(R.id.viewflipper);
+    private void updateGrantButtons() {
 
-    super.onRestoreInstanceState(savedInstanceState);
-
-    if (savedInstanceState != null) {
-
-      isRootGranted = savedInstanceState.getBoolean(
-        "IS_ROOT_GRANTED",
-        false
-      );
-
-      button3_pushed = savedInstanceState.getBoolean(
-        "BUTTON3_PUSHED",
-        false
-      );
-
-      Button btngrant = findViewById(R.id.button3);
-
-      if (btngrant != null) {
-
+        /*
+         * Root butonu.
+         * Mevcut renkler aynen korunmuştur.
+         */
         if (isRootGranted) {
 
-          btngrant.setEnabled(false);
-          btngrant.setText("GRANTED");
-          btngrant.setBackgroundTintList(
-            ColorStateList.valueOf(
-              Color.parseColor("#4CAF50")
-            )
-          );
+            btngrant.setEnabled(false);
+            btngrant.setText("GRANTED");
+            btngrant.setBackgroundTintList(
+                ColorStateList.valueOf(
+                    Color.parseColor("#4CAF50")
+                )
+            );
 
         } else if (button3_pushed) {
 
-          btngrant.setEnabled(true);
-          btngrant.setText("TRY AGAIN");
-          btngrant.setBackgroundTintList(
-            ColorStateList.valueOf(
-              Color.parseColor("#E53935")
-            )
-          );
+            btngrant.setEnabled(true);
+            btngrant.setText("TRY AGAIN");
+            btngrant.setBackgroundTintList(
+                ColorStateList.valueOf(
+                    Color.parseColor("#E53935")
+                )
+            );
 
         } else {
 
-          btngrant.setEnabled(true);
-          btngrant.setText("GRANT ROOT PERMISSION");
-          btngrant.setBackgroundTintList(
-            ColorStateList.valueOf(
-              Color.parseColor("#2563EB")
-            )
-          );
+            btngrant.setEnabled(true);
+            btngrant.setText("GRANT ROOT PERMISSION");
+            btngrant.setBackgroundTintList(
+                ColorStateList.valueOf(
+                    Color.parseColor("#2563EB")
+                )
+            );
         }
-      }
 
-      int savedIndex = savedInstanceState.getInt(
-        "SAVED_PAGE_INDEX",
-        0
-      );
+        /*
+         * Storage butonu.
+         */
+        if (isStorageGranted) {
 
-      if (viewflipper != null) {
-        viewflipper.setDisplayedChild(savedIndex);
-        updateUI(savedIndex);
-      }
+            btngrant2.setText("GRANTED");
+            btngrant2.setBackgroundTintList(
+                ColorStateList.valueOf(
+                    Color.parseColor("#4CAF50")
+                )
+            );
+            btngrant2.setEnabled(false);
+
+        } else {
+
+            btngrant2.setText("ALLOW STORAGE ACCESS");
+            btngrant2.setBackgroundTintList(
+                ColorStateList.valueOf(
+                    Color.parseColor("#2563EB")
+                )
+            );
+            btngrant2.setEnabled(true);
+        }
+
+        /*
+         * Notification butonu.
+         */
+        if (isNotificationGranted) {
+
+            btngrant3.setText("ALLOWED");
+            btngrant3.setBackgroundTintList(
+                ColorStateList.valueOf(
+                    Color.parseColor("#4CAF50")
+                )
+            );
+            btngrant3.setEnabled(false);
+
+        } else {
+
+            btngrant3.setText("ALLOW NOTIFICATIONS");
+            btngrant3.setBackgroundTintList(
+                ColorStateList.valueOf(
+                    Color.parseColor("#2563EB")
+                )
+            );
+            btngrant3.setEnabled(true);
+        }
+
+        /*
+         * Battery optimization butonu.
+         */
+        if (isBatteryOptimizationDisabled) {
+
+            btngrant4.setText("DISABLED");
+            btngrant4.setBackgroundTintList(
+                ColorStateList.valueOf(
+                    Color.parseColor("#4CAF50")
+                )
+            );
+            btngrant4.setEnabled(false);
+
+        } else {
+
+            btngrant4.setText("DISABLE");
+            btngrant4.setBackgroundTintList(
+                ColorStateList.valueOf(
+                    Color.parseColor("#2563EB")
+                )
+            );
+            btngrant4.setEnabled(true);
+        }
     }
-  }
 
-  private void updateUI(int position) {
+    private void requestRoot() {
 
-    Button btnback = findViewById(R.id.button);
-    Button btnnext = findViewById(R.id.button2);
-    Button btngrant = findViewById(R.id.button3);
-    Button btngrant2 = findViewById(R.id.button4);
-    Button btngrant3 = findViewById(R.id.button5);
+        btngrant.setEnabled(false);
+        button3_pushed = true;
 
-    ViewFlipper viewflipper = findViewById(R.id.viewflipper);
-    Intent intent = new Intent(MainActivity.this, BootManager.class);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
 
-    RadioGroup radiogroup = findViewById(R.id.radiogroup);
-    RadioButton radio1 = findViewById(R.id.radio1);
-    RadioButton radio2 = findViewById(R.id.radio2);
-    RadioButton radio3 = findViewById(R.id.radio3);
-    RadioButton radio4 = findViewById(R.id.radio4);
-    RadioButton radio5 = findViewById(R.id.radio5);
-    RadioButton[] radios = {
-      radio1,
-      radio2,
-      radio3,
-      radio4,
-      radio5
-    };
+                final boolean grantedResult =
+                    requestRootPermission();
 
-    for (int i = 0; i < radios.length; i++) {
-      if (radios[i] == null) continue;
-      if (i == position) {
-        radios[i].setChecked(true);
-        radios[i].animate().alpha(1.0f).scaleX(0.5f).scaleY(0.5f).setDuration(250).start();
-      } else {
-        radios[i].setChecked(false);
-        radios[i].animate().alpha(1.0f).scaleX(0.4f).scaleY(0.4f).setDuration(250).start();
-      }
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        isRootGranted = grantedResult;
+
+                        if (isRootGranted) {
+
+                            saveFlag(FLAG_ROOT_GRANTED);
+
+                            btngrant.setEnabled(false);
+                            btngrant.setText("GRANTED");
+                            btngrant.setBackgroundTintList(
+                                ColorStateList.valueOf(
+                                    Color.parseColor("#4CAF50")
+                                )
+                            );
+
+                        } else {
+
+                            Toast.makeText(
+                                MainActivity.this,
+                                "Please check if this device is rooted and try again!",
+                                Toast.LENGTH_LONG
+                            ).show();
+
+                            btngrant.setEnabled(true);
+                            btngrant.setText("TRY AGAIN");
+                            btngrant.setBackgroundTintList(
+                                ColorStateList.valueOf(
+                                    Color.parseColor("#E53935")
+                                )
+                            );
+                        }
+                    }
+                });
+            }
+        }).start();
     }
 
-    boolean isFirstPage = (position == 0);
-    btnback.setEnabled(!isFirstPage);
-    btnback.setText(isFirstPage ? "" : "< BACK");
+    private boolean requestRootPermission() {
 
-    boolean isLastPage = (position == radios.length - 1);
-    btnnext.setText(isLastPage ? "FINISH" : "NEXT >");
+        Process process = null;
+        DataOutputStream os = null;
+        BufferedReader reader = null;
 
-  }
-
-  private boolean requestRootPermission() {
-    Process process = null;
-    DataOutputStream os = null;
-    try {
-      process = Runtime.getRuntime().exec("su");
-      os = new DataOutputStream(process.getOutputStream());
-      os.writeBytes("id\n");
-      os.writeBytes("exit\n");
-      os.flush();
-
-      int exitCode = process.waitFor();
-      return (exitCode == 0);
-    } catch (Exception e) {
-      e.printStackTrace();
-      return false;
-    } finally {
-      try {
-        if (os != null) os.close();
-        if (process != null) process.destroy();
-      } catch (Exception ignored) {}
-    }
-  }
-
-  private boolean hasNotificationPermission() {
-    notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-    if (android.os.Build.VERSION.SDK_INT < 33) {
-      return true;
-    } else {
-      boolean hasRuntimePermission = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
-      boolean isSystemEnabled = notificationManager != null && notificationManager.areNotificationsEnabled();
-      return hasRuntimePermission && isSystemEnabled;
-    }
-  }
-
-  public void disableBatteryOptimization() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-      PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-
-      if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
         try {
-          Intent intent3 = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-          intent3.setData(Uri.parse("package:" + getPackageName()));
-          startActivity(intent3);
+
+            process = Runtime.getRuntime().exec("su");
+
+            os = new DataOutputStream(
+                process.getOutputStream()
+            );
+
+            os.writeBytes("id\n");
+            os.writeBytes("exit\n");
+            os.flush();
+
+            reader = new BufferedReader(
+                new InputStreamReader(
+                    process.getInputStream()
+                )
+            );
+
+            StringBuilder output =
+                new StringBuilder();
+
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append('\n');
+            }
+
+            int exitCode = process.waitFor();
+
+            return exitCode == 0 &&
+                output.toString().contains("uid=0");
+
         } catch (Exception e) {
-          Intent intent3 = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
-          startActivity(intent3);
+
+            e.printStackTrace();
+            return false;
+
+        } finally {
+
+            try {
+                if (reader != null) {
+                    reader.close();
+                }
+            } catch (Exception ignored) {
+            }
+
+            try {
+                if (os != null) {
+                    os.close();
+                }
+            } catch (Exception ignored) {
+            }
+
+            if (process != null) {
+                process.destroy();
+            }
         }
-      }
     }
-  }
-  public boolean hasBatteryOptimizationBeenDisabled() {
-    PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-    return pm.isIgnoringBatteryOptimizations(getPackageName());
-  }
+
+    private void requestStoragePermission() {
+
+        if (hasStoragePermission()) {
+            return;
+        }
+
+        /*
+         * Android 11 ve üzeri:
+         * MANAGE_EXTERNAL_STORAGE ayarı.
+         */
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+
+            try {
+
+                Intent intent = new Intent(
+                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
+                );
+
+                intent.setData(
+                    Uri.parse(
+                        "package:" + getPackageName()
+                    )
+                );
+
+                startActivity(intent);
+
+            } catch (Exception e) {
+
+                Intent intent = new Intent(
+                    Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION
+                );
+
+                startActivity(intent);
+            }
+
+        } else {
+
+            /*
+             * Android 10 ve altı:
+             * normal runtime storage izni.
+             */
+            requestPermissions(
+                new String[] {
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                },
+                REQUEST_STORAGE_PERMISSION
+            );
+        }
+    }
+
+    private boolean hasStoragePermission() {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+
+            return Environment.isExternalStorageManager();
+
+        } else {
+
+            return checkSelfPermission(
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED;
+        }
+    }
+
+    private void requestNotificationPermission() {
+
+        if (Build.VERSION.SDK_INT < 33) {
+            isNotificationGranted = true;
+            updateGrantButtons();
+            updateUI(viewflipper.getDisplayedChild(), false);
+            return;
+        }
+
+        if (hasNotificationPermission()) {
+            return;
+        }
+
+        /*
+         * İlk istek.
+         */
+        if (!isNotificationRequested) {
+
+            isNotificationRequested = true;
+
+            requestPermissions(
+                new String[] {
+                    Manifest.permission.POST_NOTIFICATIONS
+                },
+                REQUEST_NOTIFICATION_PERMISSION
+            );
+
+            return;
+        }
+
+        /*
+         * Android tekrar izin penceresi göstermeye izin veriyorsa
+         * tekrar iste.
+         */
+        if (
+            shouldShowRequestPermissionRationale(
+                Manifest.permission.POST_NOTIFICATIONS
+            )
+        ) {
+
+            requestPermissions(
+                new String[] {
+                    Manifest.permission.POST_NOTIFICATIONS
+                },
+                REQUEST_NOTIFICATION_PERMISSION
+            );
+
+            return;
+        }
+
+        /*
+         * Kullanıcı izni kalıcı olarak reddettiyse ayarlar sayfasını aç.
+         */
+        Toast.makeText(
+            this,
+            "Please enable notifications from notification settings.",
+            Toast.LENGTH_LONG
+        ).show();
+
+        Intent intent = new Intent(
+            Settings.ACTION_APP_NOTIFICATION_SETTINGS
+        );
+
+        intent.putExtra(
+            Settings.EXTRA_APP_PACKAGE,
+            getPackageName()
+        );
+
+        startActivity(intent);
+    }
+
+    private boolean hasNotificationPermission() {
+
+        /*
+         * Android 12L ve altı için runtime POST_NOTIFICATIONS
+         * izni bulunmaz.
+         */
+        if (Build.VERSION.SDK_INT < 33) {
+            return true;
+        }
+
+        notificationManager =
+            (NotificationManager)
+            getSystemService(Context.NOTIFICATION_SERVICE);
+
+        boolean hasRuntimePermission =
+            checkSelfPermission(
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED;
+
+        boolean isSystemEnabled =
+            notificationManager != null &&
+            notificationManager.areNotificationsEnabled();
+
+        return hasRuntimePermission && isSystemEnabled;
+    }
+
+    public void disableBatteryOptimization() {
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return;
+        }
+
+        PowerManager pm =
+            (PowerManager)
+            getSystemService(Context.POWER_SERVICE);
+
+        if (
+            pm != null &&
+            !pm.isIgnoringBatteryOptimizations(
+                getPackageName()
+            )
+        ) {
+
+            try {
+
+                Intent intent = new Intent(
+                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+                );
+
+                intent.setData(
+                    Uri.parse(
+                        "package:" + getPackageName()
+                    )
+                );
+
+                startActivity(intent);
+
+            } catch (Exception e) {
+
+                Intent intent = new Intent(
+                    Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
+                );
+
+                startActivity(intent);
+            }
+        }
+    }
+
+    public boolean hasBatteryOptimizationBeenDisabled() {
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return true;
+        }
+
+        PowerManager pm =
+            (PowerManager)
+            getSystemService(Context.POWER_SERVICE);
+
+        return pm != null &&
+            pm.isIgnoringBatteryOptimizations(
+                getPackageName()
+            );
+    }
+
+    @Override
+    protected void onResume() {
+
+        super.onResume();
+
+        /*
+         * Kurulum tamamlanmışsa Activity bindViews() aşamasına
+         * gelmeden kapanmış olabilir.
+         */
+        if (viewflipper == null) {
+            return;
+        }
+
+        refreshPermissionStates();
+        updateGrantButtons();
+        updateUI(viewflipper.getDisplayedChild(), false);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(
+        int requestCode,
+        String[] permissions,
+        int[] grantResults
+    ) {
+
+        super.onRequestPermissionsResult(
+            requestCode,
+            permissions,
+            grantResults
+        );
+
+        if (
+            requestCode == REQUEST_STORAGE_PERMISSION ||
+            requestCode == REQUEST_NOTIFICATION_PERMISSION
+        ) {
+
+            refreshPermissionStates();
+            updateGrantButtons();
+            updateUI(
+                viewflipper.getDisplayedChild(),
+                false
+            );
+        }
+    }
+
+    private boolean hasSavedFlag(String flag) {
+
+        File file = new File(
+            getFilesDir(),
+            STATE_FILE
+        );
+
+        if (!file.exists()) {
+            return false;
+        }
+
+        BufferedReader br = null;
+
+        try {
+
+            br = new BufferedReader(
+                new FileReader(file)
+            );
+
+            String line;
+
+            while ((line = br.readLine()) != null) {
+
+                if (flag.equals(line.trim())) {
+                    return true;
+                }
+            }
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+        } finally {
+
+            try {
+                if (br != null) {
+                    br.close();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        return false;
+    }
+
+    private void saveFlag(String flag) {
+
+        /*
+         * Aynı satırı dosyaya tekrar tekrar yazma.
+         */
+        if (hasSavedFlag(flag)) {
+            return;
+        }
+
+        FileOutputStream fos = null;
+
+        try {
+
+            File file = new File(
+                getFilesDir(),
+                STATE_FILE
+            );
+
+            fos = new FileOutputStream(
+                file,
+                true
+            );
+
+            fos.write(
+                (flag + "\n").getBytes("UTF-8")
+            );
+
+            fos.flush();
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+        } finally {
+
+            try {
+                if (fos != null) {
+                    fos.close();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private void finishSetup() {
+
+        /*
+         * Root isteğe bağlıdır.
+         * Storage, notification ve battery izinleri zorunludur.
+         */
+        if (!hasStoragePermission()) {
+            return;
+        }
+
+        if (!hasNotificationPermission()) {
+            return;
+        }
+
+        if (!hasBatteryOptimizationBeenDisabled()) {
+            return;
+        }
+
+        saveFlag(FLAG_PERMISSIONS_GRANTED);
+        openBootManager();
+    }
+
+    private void openBootManager() {
+
+        Intent intent = new Intent(
+            MainActivity.this,
+            BootManager.class
+        );
+
+        startActivity(intent);
+        finish();
+    }
+
+    @Override
+    protected void onSaveInstanceState(
+        Bundle outState
+    ) {
+
+        super.onSaveInstanceState(outState);
+
+        outState.putBoolean(
+            "BUTTON3_PUSHED",
+            button3_pushed
+        );
+
+        outState.putBoolean(
+            "NOTIFICATION_REQUESTED",
+            isNotificationRequested
+        );
+
+        if (viewflipper != null) {
+
+            outState.putInt(
+                "SAVED_PAGE_INDEX",
+                viewflipper.getDisplayedChild()
+            );
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+
+        if (
+            viewflipper != null &&
+            viewflipper.getDisplayedChild() > 0
+        ) {
+
+            goBack();
+            return;
+        }
+
+        super.onBackPressed();
+    }
 }
