@@ -22,6 +22,12 @@
 		<activity android:name=".VentoyActivity" android:exported="false" />
 		
 		<activity android:name=".IsoWriterActivity" android:exported="false" />
+		
+		<activity android:name=".TftpActivity" android:exported="false" />
+		
+		<activity android:name=".GadgetActivity" android:exported="false" />
+		
+		<activity android:name=".FunctionFsActivity" android:exported="false" />
 
     </application>
 
@@ -36,6 +42,10 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     
 	<uses-permission android:name="android.permission.USB_PERMISSION" />
+	
+	<uses-permission android:name="android.permission.INTERNET" />
+
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 	
 	<uses-feature android:name="android.hardware.usb.host" />
 

@@ -641,33 +641,45 @@ public class BootManager extends Activity {
 
             case BOOT_GADGET:
 
-                Toast.makeText(
-                    BootManager.this,
-                    "USB Gadget mode selected.",
-                    Toast.LENGTH_SHORT
-                ).show();
+                Intent gadgetIntent =
+                new Intent(
+                BootManager.this,
+                GadgetActivity.class
+            );
+
+                startActivity(
+                gadgetIntent
+            );
 
                 break;
 
 
             case BOOT_TFTP:
 
-                Toast.makeText(
-                    BootManager.this,
-                    "TFTP server mode selected.",
-                    Toast.LENGTH_SHORT
-                ).show();
+                Intent tftpIntent =
+                new Intent(
+                BootManager.this,
+                TftpActivity.class
+            );
+
+                startActivity(
+                tftpIntent
+            );
 
                 break;
 
 
             case BOOT_FUNCTIONFS:
 
-                Toast.makeText(
-                    BootManager.this,
-                    "FunctionFS mode selected.",
-                    Toast.LENGTH_SHORT
-                ).show();
+                Intent functionFsIntent =
+                new Intent(
+                BootManager.this,
+                FunctionFsActivity.class
+            );
+
+                startActivity(
+                functionFsIntent
+            );
 
                 break;
 
