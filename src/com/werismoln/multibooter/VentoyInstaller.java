@@ -417,12 +417,18 @@ public final class VentoyInstaller {
                 "Synchronizing USB cache..."
             );
 
-            /*
-             * SYNCHRONIZE CACHE(10) is not implemented by every USB flash
-             * controller. A failed cache command must not invalidate an
-             * installation after all WRITE(10) operations have completed.
-             */
-            usb.synchronizeCache();
+            if (
+                !usb.synchronizeCache()
+            ) {
+
+                return fail(
+                    ERROR_SYNC,
+                    prefixError(
+                        "Ventoy data was written but USB cache synchronization failed",
+                        usb.getLastError()
+                    )
+                );
+            }
 
             progress(
                 listener,

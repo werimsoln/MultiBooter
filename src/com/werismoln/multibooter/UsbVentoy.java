@@ -66,6 +66,13 @@ public final class UsbVentoy {
 
     private static final int USB_TIMEOUT_MS = 5000;
 
+    /*
+     * Keep every Android bulkTransfer() call at or below 16 KiB.
+     * One SCSI data phase may still span several of these USB calls.
+     */
+    private static final int MAX_USB_BULK_CHUNK_BYTES =
+        16 * 1024;
+
     private static final int CBW_LENGTH = 31;
     private static final int CSW_LENGTH = 13;
 
@@ -73,9 +80,17 @@ public final class UsbVentoy {
     private static final int CSW_SIGNATURE = 0x53425355;
 
     private static final int SCSI_TEST_UNIT_READY = 0x00;
+    private static final int SCSI_REQUEST_SENSE = 0x03;
     private static final int SCSI_READ_CAPACITY_10 = 0x25;
     private static final int SCSI_WRITE_10 = 0x2A;
     private static final int SCSI_SYNCHRONIZE_CACHE_10 = 0x35;
+
+    private static final int REQUEST_SENSE_LENGTH = 18;
+    private static final int SYNCHRONIZE_CACHE_RETRIES = 3;
+
+    private static final int SENSE_KEY_NOT_READY = 0x02;
+    private static final int SENSE_KEY_ILLEGAL_REQUEST = 0x05;
+    private static final int SENSE_KEY_UNIT_ATTENTION = 0x06;
 
     private static final int BOT_DIRECTION_OUT = 0x00;
     private static final int BOT_DIRECTION_IN = 0x80;
@@ -155,6 +170,12 @@ public final class UsbVentoy {
 
     private int nextTag = 1;
 
+    /*
+     * Set after REQUEST SENSE proves that SYNCHRONIZE CACHE(10)
+     * is not implemented by this device. Reset on close/reopen.
+     */
+    private boolean synchronizeCacheUnsupported = false;
+
     private volatile String lastError = "";
 
     /*
@@ -200,6 +221,71 @@ public final class UsbVentoy {
                 ", blockSize=" + blockSize +
                 ", totalBytes=" + totalBytes +
                 '}';
+        }
+    }
+
+    private static final class CswResult {
+
+        final int tag;
+        final long residue;
+        final int status;
+
+        CswResult(
+            int tag,
+            long residue,
+            int status
+        ) {
+            this.tag = tag;
+            this.residue = residue;
+            this.status = status;
+        }
+    }
+
+    private static final class SenseData {
+
+        final int responseCode;
+        final int senseKey;
+        final int asc;
+        final int ascq;
+
+        SenseData(
+            int responseCode,
+            int senseKey,
+            int asc,
+            int ascq
+        ) {
+            this.responseCode = responseCode;
+            this.senseKey = senseKey;
+            this.asc = asc;
+            this.ascq = ascq;
+        }
+
+        boolean isIllegalRequest() {
+            return senseKey == SENSE_KEY_ILLEGAL_REQUEST;
+        }
+
+        boolean isRetryable() {
+
+            if (senseKey == SENSE_KEY_UNIT_ATTENTION) {
+                return true;
+            }
+
+            return
+                senseKey == SENSE_KEY_NOT_READY &&
+                asc == 0x04;
+        }
+
+        String describe() {
+
+            return
+                "response=0x" +
+                Integer.toHexString(responseCode) +
+                ", senseKey=0x" +
+                Integer.toHexString(senseKey) +
+                ", ASC=0x" +
+                Integer.toHexString(asc) +
+                ", ASCQ=0x" +
+                Integer.toHexString(ascq);
         }
     }
 
@@ -645,6 +731,7 @@ public final class UsbVentoy {
 
         blockSize = 0;
         blockCount = 0;
+        synchronizeCacheUnsupported = false;
     }
 
     public synchronized boolean isOpen() {
@@ -951,6 +1038,33 @@ public final class UsbVentoy {
         );
     }
 
+    private static byte[] createRequestSenseCbw(
+        int tag
+    ) {
+
+        byte[] cdb =
+            new byte[6];
+
+        cdb[0] =
+            (byte)SCSI_REQUEST_SENSE;
+
+        /*
+         * DESC = 0: request fixed-format sense data.
+         * Allocation Length = 18 bytes.
+         */
+        cdb[4] =
+            (byte)REQUEST_SENSE_LENGTH;
+
+        return createCbw(
+            tag,
+            REQUEST_SENSE_LENGTH,
+            BOT_DIRECTION_IN,
+            0,
+            cdb,
+            6
+        );
+    }
+
     private static byte[] createSynchronizeCache10Cbw(
         int tag
     ) {
@@ -1015,12 +1129,22 @@ public final class UsbVentoy {
 
         while (transferred < length) {
 
+            int remaining =
+                length -
+                transferred;
+
+            int requestLength =
+                Math.min(
+                    remaining,
+                    MAX_USB_BULK_CHUNK_BYTES
+                );
+
             int result =
                 connection.bulkTransfer(
                     bulkOutEndpoint,
                     buffer,
                     offset + transferred,
-                    length - transferred,
+                    requestLength,
                     USB_TIMEOUT_MS
                 );
 
@@ -1029,13 +1153,26 @@ public final class UsbVentoy {
                 Log.e(
                     TAG,
                     "BULK OUT failed: result=" + result +
-                    ", requested=" + (length - transferred) +
+                    ", requestedChunk=" + requestLength +
+                    ", remaining=" + remaining +
                     ", totalLength=" + length +
                     ", transferred=" + transferred +
                     ", endpoint=0x" +
                     Integer.toHexString(
                         bulkOutEndpoint.getAddress()
                     )
+                );
+
+                return -1;
+            }
+
+            if (result > requestLength) {
+
+                Log.e(
+                    TAG,
+                    "BULK OUT returned impossible length: " +
+                    "result=" + result +
+                    ", requestedChunk=" + requestLength
                 );
 
                 return -1;
@@ -1066,12 +1203,22 @@ public final class UsbVentoy {
 
         while (transferred < length) {
 
+            int remaining =
+                length -
+                transferred;
+
+            int requestLength =
+                Math.min(
+                    remaining,
+                    MAX_USB_BULK_CHUNK_BYTES
+                );
+
             int result =
                 connection.bulkTransfer(
                     bulkInEndpoint,
                     buffer,
                     offset + transferred,
-                    length - transferred,
+                    requestLength,
                     USB_TIMEOUT_MS
                 );
 
@@ -1080,13 +1227,26 @@ public final class UsbVentoy {
                 Log.e(
                     TAG,
                     "BULK IN failed: result=" + result +
-                    ", requested=" + (length - transferred) +
+                    ", requestedChunk=" + requestLength +
+                    ", remaining=" + remaining +
                     ", totalLength=" + length +
                     ", transferred=" + transferred +
                     ", endpoint=0x" +
                     Integer.toHexString(
                         bulkInEndpoint.getAddress()
                     )
+                );
+
+                return -1;
+            }
+
+            if (result > requestLength) {
+
+                Log.e(
+                    TAG,
+                    "BULK IN returned impossible length: " +
+                    "result=" + result +
+                    ", requestedChunk=" + requestLength
                 );
 
                 return -1;
@@ -1105,7 +1265,7 @@ public final class UsbVentoy {
      * ---------------------------------------------------------------------
      */
 
-    private boolean readAndValidateCsw(
+    private CswResult readCswResult(
         int expectedTag
     ) {
 
@@ -1131,7 +1291,7 @@ public final class UsbVentoy {
                 lastError
             );
 
-            return false;
+            return null;
         }
 
         int signature =
@@ -1175,7 +1335,7 @@ public final class UsbVentoy {
                 lastError
             );
 
-            return false;
+            return null;
         }
 
         if (
@@ -1196,18 +1356,59 @@ public final class UsbVentoy {
                 lastError
             );
 
+            return null;
+        }
+
+        if (
+            status < 0 ||
+            status > 2
+        ) {
+
+            fail(
+                ERROR_SCSI,
+                "Invalid BOT CSW status. " +
+                "expectedTag=" + expectedTag +
+                ", status=" + status +
+                ", residue=" + residue
+            );
+
+            Log.e(
+                TAG,
+                lastError
+            );
+
+            return null;
+        }
+
+        return new CswResult(
+            tag,
+            residue,
+            status
+        );
+    }
+
+    private boolean readAndValidateCsw(
+        int expectedTag
+    ) {
+
+        CswResult csw =
+            readCswResult(
+                expectedTag
+            );
+
+        if (csw == null) {
             return false;
         }
 
-        if (status != 0) {
+        if (csw.status != 0) {
 
             fail(
                 ERROR_SCSI,
                 "SCSI command failed. " +
                 "expectedTag=" + expectedTag +
-                ", receivedTag=" + tag +
-                ", CSW status=" + status +
-                ", residue=" + residue
+                ", receivedTag=" + csw.tag +
+                ", CSW status=" + csw.status +
+                ", residue=" + csw.residue
             );
 
             Log.e(
@@ -1219,6 +1420,144 @@ public final class UsbVentoy {
         }
 
         return true;
+    }
+
+    private static SenseData parseSenseData(
+        byte[] data
+    ) {
+
+        if (
+            data == null ||
+            data.length < 4
+        ) {
+            return null;
+        }
+
+        int responseCode =
+            data[0] & 0x7F;
+
+        if (
+            responseCode == 0x70 ||
+            responseCode == 0x71
+        ) {
+
+            if (data.length < 14) {
+                return null;
+            }
+
+            return new SenseData(
+                responseCode,
+                data[2] & 0x0F,
+                data[12] & 0xFF,
+                data[13] & 0xFF
+            );
+        }
+
+        if (
+            responseCode == 0x72 ||
+            responseCode == 0x73
+        ) {
+
+            return new SenseData(
+                responseCode,
+                data[1] & 0x0F,
+                data[2] & 0xFF,
+                data[3] & 0xFF
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * Retrieve the sense data for the immediately preceding
+     * SCSI command failure.
+     */
+    private SenseData requestSense() {
+
+        int tag =
+            allocateTag();
+
+        byte[] cbw =
+            createRequestSenseCbw(
+                tag
+            );
+
+        if (
+            bulkOutAll(
+                cbw,
+                0,
+                cbw.length
+            ) != cbw.length
+        ) {
+
+            Log.e(
+                TAG,
+                "REQUEST SENSE CBW could not be sent."
+            );
+
+            return null;
+        }
+
+        byte[] senseBuffer =
+            new byte[REQUEST_SENSE_LENGTH];
+
+        if (
+            bulkInAll(
+                senseBuffer,
+                0,
+                senseBuffer.length
+            ) != senseBuffer.length
+        ) {
+
+            Log.e(
+                TAG,
+                "REQUEST SENSE data could not be read."
+            );
+
+            return null;
+        }
+
+        CswResult csw =
+            readCswResult(
+                tag
+            );
+
+        if (
+            csw == null ||
+            csw.status != 0
+        ) {
+
+            Log.e(
+                TAG,
+                "REQUEST SENSE itself failed."
+            );
+
+            return null;
+        }
+
+        SenseData sense =
+            parseSenseData(
+                senseBuffer
+            );
+
+        if (sense == null) {
+
+            Log.e(
+                TAG,
+                "REQUEST SENSE returned an unrecognized sense format."
+            );
+
+            return null;
+        }
+
+        Log.i(
+            TAG,
+            "REQUEST SENSE: " +
+            sense.describe()
+        );
+
+        return sense;
     }
 
     /*
@@ -2005,40 +2344,240 @@ public final class UsbVentoy {
             return false;
         }
 
-        int tag =
-            allocateTag();
+        if (synchronizeCacheUnsupported) {
 
-        byte[] cbw =
-            createSynchronizeCache10Cbw(
-                tag
+            lastError = "";
+
+            Log.i(
+                TAG,
+                "SYNCHRONIZE CACHE(10) skipped: " +
+                "device previously reported ILLEGAL REQUEST."
             );
 
-        if (
-            bulkOutAll(
-                cbw,
-                0,
-                cbw.length
-            ) != cbw.length
+            return true;
+        }
+
+        SenseData lastSense = null;
+        CswResult lastCsw = null;
+
+        for (
+            int attempt = 1;
+            attempt <= SYNCHRONIZE_CACHE_RETRIES;
+            attempt++
         ) {
 
-            fail(
-                ERROR_SCSI,
-                "SYNCHRONIZE CACHE(10) CBW could not be sent."
-            );
+            int tag =
+                allocateTag();
 
-            return false;
+            byte[] cbw =
+                createSynchronizeCache10Cbw(
+                    tag
+                );
+
+            if (
+                bulkOutAll(
+                    cbw,
+                    0,
+                    cbw.length
+                ) != cbw.length
+            ) {
+
+                fail(
+                    ERROR_SCSI,
+                    "SYNCHRONIZE CACHE(10) CBW could not be sent."
+                );
+
+                return false;
+            }
+
+            CswResult csw =
+                readCswResult(
+                    tag
+                );
+
+            if (csw == null) {
+                return false;
+            }
+
+            lastCsw = csw;
+
+            if (csw.status == 0) {
+
+                lastError = "";
+
+                Log.i(
+                    TAG,
+                    "SYNCHRONIZE CACHE(10) completed."
+                );
+
+                return true;
+            }
+
+            /*
+             * CSW 02h is a BOT phase error, not an ordinary SCSI
+             * CHECK CONDITION. Reset Recovery is required.
+             */
+            if (csw.status == 2) {
+
+                String message =
+                    "SYNCHRONIZE CACHE(10) caused BOT phase error. " +
+                    "tag=" + tag +
+                    ", residue=" + csw.residue;
+
+                Log.e(
+                    TAG,
+                    message
+                );
+
+                bulkOnlyReset();
+
+                fail(
+                    ERROR_SCSI,
+                    message
+                );
+
+                return false;
+            }
+
+            /*
+             * CSW 01h = Command Failed. The CSW does not contain the
+             * SCSI reason. REQUEST SENSE is the correct next command.
+             */
+            SenseData sense =
+                requestSense();
+
+            lastSense = sense;
+
+            if (sense != null) {
+
+                /*
+                 * Our SYNCHRONIZE CACHE(10) CDB contains only opcode
+                 * 35h with all remaining fields zero, i.e. the standard
+                 * "synchronize all blocks" form. ILLEGAL REQUEST therefore
+                 * means this device does not provide a usable implementation
+                 * of the command. Treat it as unsupported, not as failed
+                 * exFAT I/O.
+                 */
+                if (sense.isIllegalRequest()) {
+
+                    synchronizeCacheUnsupported =
+                        true;
+
+                    lastError = "";
+
+                    Log.w(
+                        TAG,
+                        "SYNCHRONIZE CACHE(10) unsupported; " +
+                        "cache sync will be a no-op for this USB session. " +
+                        sense.describe()
+                    );
+
+                    return true;
+                }
+
+                if (
+                    sense.isRetryable() &&
+                    attempt <
+                    SYNCHRONIZE_CACHE_RETRIES
+                ) {
+
+                    Log.w(
+                        TAG,
+                        "SYNCHRONIZE CACHE(10) transient failure; " +
+                        "retrying. attempt=" +
+                        attempt +
+                        ", " +
+                        sense.describe()
+                    );
+
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+
+                        Thread.currentThread().interrupt();
+
+                        fail(
+                            ERROR_SCSI,
+                            "Interrupted while retrying " +
+                            "SYNCHRONIZE CACHE(10)."
+                        );
+
+                        return false;
+                    }
+
+                    continue;
+                }
+            }
+
+            if (
+                attempt <
+                SYNCHRONIZE_CACHE_RETRIES
+            ) {
+
+                Log.w(
+                    TAG,
+                    "SYNCHRONIZE CACHE(10) failed; retrying. " +
+                    "attempt=" + attempt +
+                    ", CSW status=" + csw.status +
+                    ", residue=" + csw.residue +
+                    (
+                        sense == null
+                        ? ""
+                        : ", " + sense.describe()
+                    )
+                );
+
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+
+                    Thread.currentThread().interrupt();
+
+                    fail(
+                        ERROR_SCSI,
+                        "Interrupted while retrying " +
+                        "SYNCHRONIZE CACHE(10)."
+                    );
+
+                    return false;
+                }
+            }
         }
 
-        boolean result =
-            readAndValidateCsw(
-                tag
-            );
+        String message =
+            "SYNCHRONIZE CACHE(10) failed after " +
+            SYNCHRONIZE_CACHE_RETRIES +
+            " attempts.";
 
-        if (result) {
-            lastError = "";
+        if (lastCsw != null) {
+
+            message +=
+                " CSW status=" +
+                lastCsw.status +
+                ", residue=" +
+                lastCsw.residue +
+                ".";
         }
 
-        return result;
+        if (lastSense != null) {
+
+            message +=
+                " " +
+                lastSense.describe() +
+                ".";
+        }
+
+        fail(
+            ERROR_SCSI,
+            message
+        );
+
+        Log.e(
+            TAG,
+            lastError
+        );
+
+        return false;
     }
 
     /*
@@ -2176,14 +2715,9 @@ public final class UsbVentoy {
             if (result == RESULT_OK) {
 
                 /*
-                 * The native formatter has already completed every exFAT
-                 * metadata WRITE(10). Its flush callback may attempt
-                 * SYNCHRONIZE CACHE(10), but some USB Mass Storage devices
-                 * reject that command even though all writes succeeded.
-                 *
-                 * Do not issue a second redundant SYNCHRONIZE CACHE(10)
-                 * here and do not turn an unsupported cache command into
-                 * a formatting failure.
+                 * libexfat already invoked flushFromNative() after
+                 * writing all exFAT metadata. Do not send a redundant
+                 * second SYNCHRONIZE CACHE(10) here.
                  */
                 lastError = "";
 
@@ -2345,22 +2879,28 @@ public final class UsbVentoy {
     @SuppressWarnings("unused")
     private synchronized int flushFromNative() {
 
-        boolean result =
-            synchronizeCache();
+        Log.i(
+            TAG,
+            "EXFAT flush begin"
+        );
 
-        if (!result) {
+        if (!synchronizeCache()) {
 
             Log.e(
                 TAG,
                 "EXFAT flush failed: " +
                 lastError
             );
+
+            return -1;
         }
 
-        return
-            result
-            ? 0
-            : -1;
+        Log.i(
+            TAG,
+            "EXFAT flush ok"
+        );
+
+        return 0;
     }
 
     /*
