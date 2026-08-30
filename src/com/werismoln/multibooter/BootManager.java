@@ -613,11 +613,13 @@ public class BootManager extends Activity {
 
             case BOOT_VENTOY:
 
-                Toast.makeText(
-                    BootManager.this,
-                    "Ventoy mode selected.",
-                    Toast.LENGTH_SHORT
-                ).show();
+                Intent ventoyIntent =
+                new Intent(
+                BootManager.this,
+                VentoyActivity.class
+            );
+
+            startActivity(ventoyIntent);
 
                 break;
 

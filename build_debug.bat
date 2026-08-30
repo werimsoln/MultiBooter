@@ -128,7 +128,7 @@ for %%A in (arm64-v8a armeabi-v7a x86 x86_64) do (
     if errorlevel 1 exit /b 1
 
     echo [%%A 4/5] libexfat.so
-    "%CLANG%" --target=!TARGET! -shared -fPIC -O2 -Wall -Wextra "jni\libexfat.c" -o "lib\%%A\libexfat.so"
+    "%CLANG%" --target=!TARGET! -shared -fPIC -O2 -Wall -Wextra "jni\libexfat.c" -llog -o "lib\%%A\libexfat.so"
     if errorlevel 1 exit /b 1
 
     echo [%%A 5/5] libfunctionfs.so

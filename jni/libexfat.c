@@ -64,6 +64,13 @@
 #include <string.h>
 #include <limits.h>
 #include <jni.h>
+#include <android/log.h>
+
+#define EXFAT_LOG_TAG "EXFAT_NATIVE"
+#define EXFAT_LOGI(...) \
+    __android_log_print(ANDROID_LOG_INFO, EXFAT_LOG_TAG, __VA_ARGS__)
+#define EXFAT_LOGE(...) \
+    __android_log_print(ANDROID_LOG_ERROR, EXFAT_LOG_TAG, __VA_ARGS__)
 
 /* ------------------------------------------------------------------------- */
 /* PUBLIC BASIC TYPES                                                        */
@@ -1246,6 +1253,17 @@ static int exfat_write_volume_sectors(
             sector_count
         ) != 0
     ) {
+
+        EXFAT_LOGE(
+            "sector write failed: "
+            "volumeRelative=%llu physicalLba=%llu "
+            "sectors=%u partitionOffset=%llu",
+            (unsigned long long)volume_relative_sector,
+            (unsigned long long)media_lba,
+            (unsigned int)sector_count,
+            (unsigned long long)options->partition_offset
+        );
+
         return EXFAT_ERROR_IO;
     }
 
@@ -2134,6 +2152,22 @@ int exfat_format(
      * The volume is not exposed as a valid mounted filesystem until the
      * caller considers the operation complete.
      */
+    EXFAT_LOGI(
+        "geometry: partitionOffset=%llu volumeLength=%llu "
+        "sectorBytes=%u sectorsPerCluster=%u "
+        "fatOffset=%u fatLength=%u clusterHeapOffset=%u clusterCount=%u",
+        (unsigned long long)options->partition_offset,
+        (unsigned long long)options->volume_length,
+        (unsigned int)geometry.bytes_per_sector,
+        (unsigned int)geometry.sectors_per_cluster,
+        (unsigned int)geometry.fat_offset,
+        (unsigned int)geometry.fat_length,
+        (unsigned int)geometry.cluster_heap_offset,
+        (unsigned int)geometry.cluster_count
+    );
+
+    EXFAT_LOGI("stage=boot_regions begin");
+
     result =
         exfat_write_boot_regions(
             io,
@@ -2142,8 +2176,17 @@ int exfat_format(
         );
 
     if (result != EXFAT_OK) {
+
+        EXFAT_LOGE(
+            "stage=boot_regions failed result=%d",
+            result
+        );
+
         return result;
     }
+
+    EXFAT_LOGI("stage=boot_regions ok");
+    EXFAT_LOGI("stage=fat begin");
 
     result =
         exfat_write_fat(
@@ -2153,8 +2196,17 @@ int exfat_format(
         );
 
     if (result != EXFAT_OK) {
+
+        EXFAT_LOGE(
+            "stage=fat failed result=%d",
+            result
+        );
+
         return result;
     }
+
+    EXFAT_LOGI("stage=fat ok");
+    EXFAT_LOGI("stage=allocation_bitmap begin");
 
     result =
         exfat_write_allocation_bitmap(
@@ -2164,8 +2216,17 @@ int exfat_format(
         );
 
     if (result != EXFAT_OK) {
+
+        EXFAT_LOGE(
+            "stage=allocation_bitmap failed result=%d",
+            result
+        );
+
         return result;
     }
+
+    EXFAT_LOGI("stage=allocation_bitmap ok");
+    EXFAT_LOGI("stage=upcase begin");
 
     result =
         exfat_write_upcase_table(
@@ -2175,8 +2236,17 @@ int exfat_format(
         );
 
     if (result != EXFAT_OK) {
+
+        EXFAT_LOGE(
+            "stage=upcase failed result=%d",
+            result
+        );
+
         return result;
     }
+
+    EXFAT_LOGI("stage=upcase ok");
+    EXFAT_LOGI("stage=root_directory begin");
 
     result =
         exfat_write_root_directory(
@@ -2186,18 +2256,35 @@ int exfat_format(
         );
 
     if (result != EXFAT_OK) {
+
+        EXFAT_LOGE(
+            "stage=root_directory failed result=%d",
+            result
+        );
+
         return result;
     }
 
+    EXFAT_LOGI("stage=root_directory ok");
+
     if (io->flush != NULL) {
+
+        EXFAT_LOGI("stage=flush begin");
 
         if (
             io->flush(
                 io->context
             ) != 0
         ) {
+
+            EXFAT_LOGE(
+                "stage=flush failed"
+            );
+
             return EXFAT_ERROR_IO;
         }
+
+        EXFAT_LOGI("stage=flush ok");
     }
 
     if (out_geometry != NULL) {
@@ -2437,11 +2524,31 @@ static int exfat_jni_write_sectors(
             (jint)sector_count
         );
 
+    if (java_result != 0) {
+
+        EXFAT_LOGE(
+            "JNI Java write callback failed: "
+            "physicalLba=%llu sectors=%u bytes=%llu javaResult=%d",
+            (unsigned long long)lba,
+            (unsigned int)sector_count,
+            (unsigned long long)byte_count_64,
+            (int)java_result
+        );
+    }
+
     if (
         (*context->env)->ExceptionCheck(
             context->env
         )
     ) {
+
+        EXFAT_LOGE(
+            "JNI exception after Java write callback: "
+            "physicalLba=%llu sectors=%u",
+            (unsigned long long)lba,
+            (unsigned int)sector_count
+        );
+
         /*
          * Local references are automatically released when this native call
          * returns. Avoid further JNI work while an exception is pending.
