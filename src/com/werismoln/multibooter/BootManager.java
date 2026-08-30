@@ -626,11 +626,15 @@ public class BootManager extends Activity {
 
             case BOOT_USB_WRITER:
 
-                Toast.makeText(
+                 Intent isoWriterIntent =
+                 new Intent(
                     BootManager.this,
-                    "USB writer mode selected.",
-                    Toast.LENGTH_SHORT
-                ).show();
+                    IsoWriterActivity.class
+            );
+
+            startActivity(
+            isoWriterIntent
+            );;
 
                 break;
 

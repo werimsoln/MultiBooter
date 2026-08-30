@@ -20,6 +20,8 @@
         <activity android:name=".BootManager" android:exported="false" />
 		
 		<activity android:name=".VentoyActivity" android:exported="false" />
+		
+		<activity android:name=".IsoWriterActivity" android:exported="false" />
 
     </application>
 
