@@ -41,6 +41,8 @@ R8_BIN=""
 if [[ ! -f "$R8_JAR" ]]; then
     if [[ -f "$BUILD_TOOLS/lib/r8.jar" ]]; then
         R8_JAR="$BUILD_TOOLS/lib/r8.jar"
+    elif [[ -f "$BUILD_TOOLS/lib/d8.jar" ]]; then
+        R8_JAR="$BUILD_TOOLS/lib/d8.jar"
     elif [[ -x "$BUILD_TOOLS/r8" ]]; then
         R8_BIN="$BUILD_TOOLS/r8"
     else
