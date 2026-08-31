@@ -1,1 +1,1 @@
-Create bootable USB or boot from Android.
+Create bootable USB media and boot PCs directly from Android.

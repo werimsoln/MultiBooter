@@ -3,7 +3,7 @@
     
 	<uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" android:maxSdkVersion="37"></uses-sdk>
     
-	<application android:theme="@style/AppTheme" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:allowTaskReparenting="true"  android:allowBackup="false" android:debuggable="true"  android:enabled="true"  android:resizeableActivity="true">
+	<application android:theme="@style/AppTheme" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:allowTaskReparenting="true"  android:allowBackup="false"  android:enabled="true"  android:resizeableActivity="true">
     
         <activity android:name=".MainActivity" android:exported="true" >
 
@@ -28,6 +28,10 @@
 		<activity android:name=".GadgetActivity" android:exported="false" />
 		
 		<activity android:name=".FunctionFsActivity" android:exported="false" />
+		
+        <activity android:name=".SettingsActivity" android:exported="false" />
+		
+		<activity android:name=".AboutActivity" android:exported="false" />
 
     </application>
 
@@ -40,8 +44,6 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    
-	<uses-permission android:name="android.permission.USB_PERMISSION" />
 	
 	<uses-permission android:name="android.permission.INTERNET" />
 

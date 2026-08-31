@@ -1,3 +1,23 @@
+/******************************************************************************
+ * BootManager.java
+ *
+ * Copyright (c) 2026, werismoln <vlkanblek@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
 package com.werismoln.multibooter;
 
 import com.werismoln.multibooter.R;
@@ -253,13 +273,17 @@ public class BootManager extends Activity {
                 @Override
                 public void onClick(View v) {
 
-                    closeDrawer();
+                closeDrawer();
 
-                    Toast.makeText(
-                        BootManager.this,
-                        "Settings page will be added later.",
-                        Toast.LENGTH_SHORT
-                    ).show();
+                Intent settingsIntent =
+                new Intent(
+                    BootManager.this,
+                    SettingsActivity.class
+                );
+
+                    startActivity(
+                    settingsIntent
+                    );
                 }
             }
         );
@@ -272,11 +296,15 @@ public class BootManager extends Activity {
 
                     closeDrawer();
 
-                    Toast.makeText(
-                        BootManager.this,
-                        "About page will be added later.",
-                        Toast.LENGTH_SHORT
-                    ).show();
+                    Intent aboutIntent =
+                    new Intent(
+                    BootManager.this,
+                    AboutActivity.class
+                    );
+
+                    startActivity(
+                    aboutIntent
+                    );
                 }
             }
         );
@@ -599,12 +627,20 @@ public class BootManager extends Activity {
 
     private void updateContinueButton() {
 
-        boolean hasSelection =
-            selectedBoot != BOOT_NONE;
+    boolean hasSelection =
+        selectedBoot != BOOT_NONE;
 
-        btnContinue.setEnabled(hasSelection);
+    btnContinue.setEnabled(
+        hasSelection
+    );
 
-        btnContinue.setAlpha(1.0f);
+    btnContinue.animate().cancel();
+
+    btnContinue.setAlpha(
+        hasSelection
+            ? 1.0f
+            : 0.45f
+        );
     }
 
     private void continueWithSelectedBoot() {
