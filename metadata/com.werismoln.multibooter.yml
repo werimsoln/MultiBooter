@@ -45,9 +45,9 @@ RepoType: git
 Repo: https://github.com/werimsoln/MultiBooter.git
 
 Builds:
-  - versionName: v0.1.1
-    versionCode: 1001
-    commit: d4efa0bce403e70e93cf8bb3af4190c683855e23
+  - versionName: v0.1.2
+    versionCode: 1002
+    commit: 5be5618b34903fc128efe311566bd6660b53ba8a
     output: app-release-unsigned.apk
     ndk: r26b
     build:
@@ -57,5 +57,5 @@ Builds:
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
 
-CurrentVersion: v0.1.0
-CurrentVersionCode: 1000
+CurrentVersion: v0.1.2
+CurrentVersionCode: 1002
