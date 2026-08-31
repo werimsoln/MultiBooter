@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0B305A"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingBottom="12dp">
+
+        <TextView
+            android:id="@+id/gadget_back_top"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:text="‹"
+            android:textColor="#FFFFFF"
+            android:textSize="34sp"
+            android:textStyle="bold"
+            android:background="?android:attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="USB Gadget Boot"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="Expose an ISO/IMG from Android as USB Mass Storage through ConfigFS"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/gadget_support_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:padding="13dp"
+                android:background="#123A63"
+                android:text="Support has not been checked."
+                android:textColor="#BAE6FD"
+                android:textSize="13sp"
+                android:textIsSelectable="true" />
+
+            <Button
+                android:id="@+id/gadget_check_support"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="CHECK CONFIGFS SUPPORT"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:backgroundTint="#0F766E" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="vertical"
+                android:background="#123A63"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="BACKING IMAGE"
+                    android:textColor="#D7EEFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <EditText
+                    android:id="@+id/gadget_image_path"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:singleLine="true"
+                    android:inputType="text"
+                    android:hint="/storage/emulated/0/Download/linux.iso"
+                    android:textColor="#FFFFFF"
+                    android:textColorHint="#7FB2D9"
+                    android:backgroundTint="#BAE6FD" />
+
+                <Button
+                    android:id="@+id/gadget_select_image"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="SELECT ISO / IMG"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:backgroundTint="#2563EB" />
+
+                <TextView
+                    android:id="@+id/gadget_image_info"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="No backing image selected."
+                    android:textColor="#BAE6FD"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical"
+                android:background="#123A63"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="MASS STORAGE MODE"
+                    android:textColor="#D7EEFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <RadioGroup
+                    android:id="@+id/gadget_mode_group"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="vertical">
+
+                    <RadioButton
+                        android:id="@+id/gadget_mode_cdrom"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Virtual CD-ROM — recommended for bootable ISO files"
+                        android:textColor="#FFFFFF"
+                        android:buttonTint="#BAE6FD" />
+
+                    <RadioButton
+                        android:id="@+id/gadget_mode_disk"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="USB Mass Storage disk — IMG/raw disk image"
+                        android:textColor="#FFFFFF"
+                        android:buttonTint="#BAE6FD" />
+                </RadioGroup>
+
+                <CheckBox
+                    android:id="@+id/gadget_read_only"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Read-only backing image"
+                    android:textColor="#FFFFFF"
+                    android:buttonTint="#BAE6FD" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:text="CD-ROM mode is always read-only. Disk mode can be writable, but writable mode allows the host PC to modify the backing image."
+                    android:textColor="#BAE6FD"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:padding="13dp"
+                android:background="#5A2A2A"
+                android:text="WARNING: Requires root and kernel ConfigFS Mass Storage support. Enabling the gadget briefly disconnects and reconnects the phone's USB device controller."
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <ProgressBar
+                android:id="@+id/gadget_setup_progress"
+                style="?android:attr/progressBarStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="16dp"
+                android:visibility="gone" />
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingTop="8dp">
+
+        <Button
+            android:id="@+id/gadget_cancel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="CANCEL"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:backgroundTint="#123A63" />
+
+        <Button
+            android:id="@+id/gadget_start"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="ENABLE GADGET"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:enabled="false"
+            android:alpha="0.45"
+            android:backgroundTint="#0F766E" />
+    </LinearLayout>
+
+</LinearLayout>

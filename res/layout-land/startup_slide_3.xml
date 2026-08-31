@@ -1,18 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#1c75ad" android:gravity="center_horizontal" android:padding="24dp">
-    
-	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
-    
-	<TextView android:id="@+id/grant_title2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Grant External Storage Permission." android:textColor="#FFFFFF" android:textSize="28sp" android:textStyle="bold" android:gravity="center" />
-    
-	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.3" />
-    
-	<TextView android:id="@+id/desc3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Please grant storage permission for chosing disk image from external storage." android:textColor="#D0E8FF" android:textSize="16sp" android:gravity="center" android:paddingStart="16dp" android:paddingEnd="16dp" />
-    
-	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1.2" />
-    
-	<Button android:id="@+id/button4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:text="ALLOW STORAGE ACCESS" android:backgroundTint="#2563EB" />
-    
-	<Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.1" />
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0B305A"
+    android:gravity="center_horizontal"
+    android:padding="16dp">
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <TextView
+        android:id="@+id/grant_title2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Grant External Storage Permission."
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:gravity="center" />
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.3" />
+
+    <TextView
+        android:id="@+id/desc3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Please grant storage permission for chosing disk image from external storage."
+        android:textColor="#D0E8FF"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp" />
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.6" />
+
+    <Button
+        android:id="@+id/button4"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ALLOW STORAGE ACCESS"
+        android:backgroundTint="#2563EB" />
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 
 </LinearLayout>
