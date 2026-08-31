@@ -1,11 +1,5 @@
 # MultiBooter
 
-<p align="center">
-  <a href="https://f-droid.org/packages/com.werismoln.multibooter/">
-    <img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80">
-  </a>
-</p>
-
 MultiBooter is a free and open-source Android application for creating bootable USB media and booting computers directly from an Android device.
 
 The project is built with the Android framework, Java, native C code and the Android NDK. It does not depend on AndroidX.
@@ -107,15 +101,13 @@ MultiBooter/
 ├── metadata/             F-Droid metadata
 ├── AndroidManifest.xml
 ├── build.sh
-├── build_debug.bat
-├── build_release.bat
 ├── proguard-rules.pro
 └── LICENSE
 ```
 
-## F-Droid
+## Distribution
 
-The project is being prepared for distribution through F-Droid.
+MultiBooter is prepared for distribution through F-Droid and can also be installed and updated directly from GitHub Releases using Obtainium.
 
 The application is designed to operate without downloading additional executable components after installation. Required application components are intended to be included in, or built from, the source repository.
 
@@ -140,3 +132,16 @@ See [LICENSE](LICENSE) for the full license text.
 Boot-media creation, raw USB writing, USB Gadget configuration and network booting are low-level operations. Hardware and kernel behavior differs between Android devices.
 
 Use the software at your own risk and verify important data before performing destructive operations.
+
+<p align="center">
+  <a href="https://f-droid.org/packages/com.werismoln.multibooter/">
+    <img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png"
+         alt="Get it on F-Droid"
+         height="80">
+  </a>
+  <a href="https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/werimsoln/MultiBooter">
+    <img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png"
+         alt="Get it on Obtainium"
+         height="80">
+  </a>
+</p>
