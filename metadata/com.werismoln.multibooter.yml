@@ -14,8 +14,7 @@ Builds:
     versionCode: 1003
     commit: c292963b060905652bf25dda28821c34b0b7fa3e
     output: app-release-unsigned.apk
-    prebuild:
-      - sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
+    prebuild: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
     build:
       - chmod +x build.sh
       - ./build.sh
