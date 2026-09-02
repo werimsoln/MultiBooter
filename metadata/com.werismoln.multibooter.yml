@@ -12,9 +12,10 @@ Repo: https://github.com/werimsoln/MultiBooter.git
 Builds:
   - versionName: v0.1.0
     versionCode: 1000
-    commit: c292963b060905652bf25dda28821c34b0b7fa3e
+    commit: e9eb1d67ec4f3726a24cec5e3140942f572ee670
     output: app-release-unsigned.apk
     prebuild: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
+    binary: https://github.com/werimsoln/MultiBooter/releases/download/%v/MultiBooter-%v.apk
     build:
       - chmod +x build.sh
       - ./build.sh
