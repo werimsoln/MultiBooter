@@ -4,6 +4,9 @@ License: GPL-3.0-or-later
 SourceCode: https://github.com/werimsoln/MultiBooter
 IssueTracker: https://github.com/werimsoln/MultiBooter/issues
 
+AuthorName: Volkan Belek
+AuthorEmail: vlkanblek@gmail.com
+
 AutoName: MultiBooter
 
 RepoType: git
