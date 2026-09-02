@@ -14,13 +14,13 @@ Builds:
     versionCode: 1000
     commit: e9eb1d67ec4f3726a24cec5e3140942f572ee670
     output: app-release-unsigned.apk
-    prebuild: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
     binary: https://github.com/werimsoln/MultiBooter/releases/download/%v/MultiBooter-%v.apk
+    prebuild: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
     build:
       - chmod +x build.sh
       - ./build.sh
     ndk: r26b
-    
+
 AllowedAPKSigningKeys: 32f7985d9fa63699160c240ddde89abe3f2677be9c95bf6f4c0412e1fb23c2ce
 
 AutoUpdateMode: Version
