@@ -1,1 +1,0 @@
-Added asset provanance for F-Droid submission process.
