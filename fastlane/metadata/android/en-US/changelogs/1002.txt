@@ -1,1 +1,0 @@
-Changed metadata and screenshots directory for F-Droid submission process.
