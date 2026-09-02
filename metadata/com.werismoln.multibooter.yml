@@ -19,6 +19,8 @@ Builds:
       - chmod +x build.sh
       - ./build.sh
     ndk: r26b
+    
+AllowedAPKSigningKeys: 32f7985d9fa63699160c240ddde89abe3f2677be9c95bf6f4c0412e1fb23c2ce
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
