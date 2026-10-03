@@ -1,0 +1,21 @@
+{
+  "commandLine": [
+    "/home/werismoln/fdroid-venv/bin/fdroid build",
+    "com.werismoln.multibooter:1000"
+  ],
+  "fdroiddata": {
+    "commitId": "240e9225370c9c95f7005d4b19fabf8db1fa08ff",
+    "isDirty": true,
+    "modifiedFiles": [
+      "build.sh",
+      "metadata/com.werismoln.multibooter.yml"
+    ],
+    "untrackedFiles": [
+      "repo/com.werismoln.multibooter_1000.log.gz",
+      "repo/status/build.json",
+      "repo/status/running.json"
+    ]
+  },
+  "startTimestamp": 1791049578000,
+  "subcommand": "build"
+}
