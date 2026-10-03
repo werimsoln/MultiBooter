@@ -14,7 +14,7 @@ Repo: https://github.com/werimsoln/MultiBooter.git
 Builds:
   - versionName: v0.1.0
     versionCode: 1000
-    commit: d61588bab9749f8242f65bb299cc2509aae6c8ac
+    commit: 0343f3fb67d0548e08eb1d286ef949723f0cf417
     output: app-release-unsigned.apk
     srclibs:
       - Ventoy@v1.1.17
