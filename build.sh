@@ -24,6 +24,12 @@ echo "      MultiBooter F-Droid BUILD"
 echo "=========================================="
 echo
 
+echo "[INFO] Java:"
+java -version
+
+echo "[INFO] Javac:"
+javac -version
+
 ANDROID_API="${ANDROID_API:-34}"
 NDK_VERSION="${NDK_VERSION:-30.0.16248370}"
 BUILD_TOOLS_VERSION="${BUILD_TOOLS_VERSION:-34.0.0}"
