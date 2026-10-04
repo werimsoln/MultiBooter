@@ -713,7 +713,7 @@ if [[ -f "$DNSMASQ_SRC/dnsmasq.c" ]]; then
             -pie \
             -DNO_IPV6 \
             -DNO_DBUS \
-            '-DVERSION="2.89"' \
+            '-DVERSION="2.93"' \
             -DETHER_ADDR_LEN=6 \
             -Wno-macro-redefined \
             "${DNSMASQ_SOURCES[@]}" \

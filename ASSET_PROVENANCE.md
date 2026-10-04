@@ -862,7 +862,7 @@ For the current F-Droid release build, the MultiBooter source revision
 specified by the metadata is:
 
 ```text
-76a4ae198102433b663a81f1b7596bb73347be41
+055c434db12f24813b7cdb5aaf9e9dee4e7e8933
 ```
 
 The provenance chain for the current Ventoy integration is:
