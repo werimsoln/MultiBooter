@@ -1,9 +1,20 @@
-License: Unknown
+Categories:
+  - System
+License: GPL-3.0-or-later
+AuthorName: Volkan Belek
+AuthorEmail: vlkanblek@gmail.com
+SourceCode: https://github.com/werimsoln/MultiBooter
+IssueTracker: https://github.com/werimsoln/MultiBooter/issues
+
+AutoName: MultiBooter
+
+RepoType: git
+Repo: https://github.com/werimsoln/MultiBooter.git
 
 Builds:
   - versionName: v0.1.0
     versionCode: 1000
-    commit: 260a50ac64b7efb2de5c3f511fd82e1d879e2397
+    commit: 1eb91d30242e3cf38387e1e30b15ea726ff586a0
     sudo:
       - apt-get update
       - apt-get install -y dosfstools faketime mtools
@@ -18,5 +29,7 @@ Builds:
       - VENTOY_SRC="$$Ventoy$$" ./build.sh
     ndk: 30.0.16248370
 
-AutoUpdateMode: None
-UpdateCheckMode: None
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: v0.1.0
+CurrentVersionCode: 1000
