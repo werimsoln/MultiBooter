@@ -1,72 +1,104 @@
 # MultiBooter Asset Provenance
 
-This document describes the origin, purpose, licensing and verification
-information for binary or generated assets bundled with MultiBooter.
+This document records the origin, version, licensing, verification status and
+rebuild model of binary or generated boot assets used by MultiBooter.
 
 The purpose of this document is to make the provenance of bundled boot
-components independently auditable.
+components independently auditable and to clearly distinguish:
+
+1. official upstream Ventoy release assets;
+2. firmware-trusted Secure Boot binaries preserved from the upstream release;
+3. the deterministic VTOYEFI image reconstructed by the MultiBooter build;
+4. the files actually shipped inside the application package.
+
+MultiBooter does not claim ownership of Ventoy or any third-party components
+contained in Ventoy assets.
 
 ---
 
-## Ventoy
+## 1. Ventoy upstream source
 
 **Project:** Ventoy
 
-**Upstream source:**
+**Repository:**
 
 https://github.com/ventoy/Ventoy
 
-**Upstream version:** Ventoy 1.1.17
+**Version:** `1.1.17`
 
-**Upstream tag:** `v1.1.17`
+**Tag:** `v1.1.17`
 
-**Upstream release archive:**
+**Tag commit:**
+
+`7cbdc5cf69935bcf1f085ae67f40e70ea7e74bae`
+
+Ventoy 1.1.17's upstream `BLOB_List.md` identifies the origins of the
+relevant EFI components, including Rocky Linux 9.8 Secure Boot binaries and
+Ventoy-built EFI components.
+
+---
+
+## 2. Official Ventoy release archive
+
+**Release archive:**
 
 https://github.com/ventoy/Ventoy/releases/download/v1.1.17/ventoy-1.1.17-linux.tar.gz
 
-**Upstream release archive SHA-256:**
+**Archive SHA-256:**
 
 ```text
 7fb4ed08cef6a6b4d39dd19260d8c80291a78dfdf9af7d461571e23cbbc43805
 ```
 
-Ventoy and the third-party components distributed with it retain their
-respective upstream licenses.
+The archive above is the upstream baseline for the Ventoy 1.1.17 assets
+documented in this file.
 
-For licensing, source and bundled-component information, see the official
-Ventoy source repository and its accompanying licensing and binary-component
-documentation.
+The archive should be verified before extracting or packaging any Ventoy
+asset.
 
-MultiBooter does not download these boot components at runtime.
+Example:
 
-The required Ventoy boot assets are bundled with the application so that
-Ventoy installation can operate without downloading executable components
-after installation.
+```bash
+sha256sum ventoy-1.1.17-linux.tar.gz
+```
+
+Expected result:
+
+```text
+7fb4ed08cef6a6b4d39dd19260d8c80291a78dfdf9af7d461571e23cbbc43805  ventoy-1.1.17-linux.tar.gz
+```
 
 ---
 
-## boot.img
+# 3. Official Ventoy boot assets
+
+## 3.1 boot.img
 
 **MultiBooter path:**
 
-`src/main/assets/boot.img`
+```text
+src/main/assets/boot.img
+```
 
 **Purpose:**
 
-Contains the initial boot-sector data used when preparing a Ventoy USB
-device.
+Contains the Ventoy MBR boot-sector image used as the source of the boot
+code written to the beginning of a target USB device.
 
 **Upstream project:** Ventoy
 
-**Upstream version:** `v1.1.17`
+**Upstream version:** `1.1.17`
 
-**Upstream release archive:**
+**Release archive path:**
 
-`ventoy-1.1.17-linux.tar.gz`
+```text
+ventoy-1.1.17/boot/boot.img
+```
 
-**Path inside the release archive:**
+**Acquisition method:**
 
-`ventoy-1.1.17/boot/boot.img`
+The file is extracted unchanged from the official Ventoy 1.1.17 Linux release
+archive.
 
 **SHA-256:**
 
@@ -74,38 +106,47 @@ device.
 f37cbea83596aef9812f4d984d344b5103913505dfee40dc0025742ea54a6113
 ```
 
-### Acquisition
+**Modification status:**
 
-The file was extracted unchanged from the official Ventoy 1.1.17 Linux
-release archive.
+The bundled file is not modified after extraction.
 
-No modification is performed on the file before it is included in
-MultiBooter.
+During installation, MultiBooter uses only the required boot-sector data
+needed to construct the target MBR. The partition table and disk-specific
+values are generated separately by MultiBooter.
 
 ---
 
-## core.img
+## 3.2 core.img
 
 **MultiBooter path:**
 
-`src/main/assets/core.img`
+```text
+src/main/assets/core.img
+```
 
 **Purpose:**
 
-Contains the Ventoy boot core written to the target USB device during
-Ventoy installation.
+Contains the Ventoy BIOS boot core written to the target USB device.
 
 **Upstream project:** Ventoy
 
-**Upstream version:** `v1.1.17`
+**Upstream version:** `1.1.17`
 
-**Upstream release archive:**
+**Release archive path:**
 
-`ventoy-1.1.17-linux.tar.gz`
+```text
+ventoy-1.1.17/boot/core.img.xz
+```
 
-**Path inside the release archive:**
+**Acquisition method:**
 
-`ventoy-1.1.17/boot/core.img.xz`
+The file is losslessly decompressed from:
+
+```text
+ventoy-1.1.17/boot/core.img.xz
+```
+
+using XZ decompression.
 
 **SHA-256 of the decompressed image:**
 
@@ -113,72 +154,332 @@ Ventoy installation.
 b6581090947e7cacbd3cee23dfe2216aee9ab368c6508c2c5f3490621e969b84
 ```
 
-### Acquisition
-
-The file was obtained by losslessly decompressing:
-
-`ventoy-1.1.17/boot/core.img.xz`
-
-from the official Ventoy 1.1.17 Linux release archive.
+**Modification status:**
 
 No modification is performed after decompression.
 
-Ventoy's upstream packaging process generates `core.img` and then compresses
-it using XZ for inclusion in the Linux release archive.
+The decompressed image is written to the Ventoy BIOS boot region as required
+by the MultiBooter MBR installation procedure.
 
 ---
 
-## ventoy.disk.img
+# 4. Official Ventoy VTOYEFI image
+
+## 4.1 Original upstream image
 
 **MultiBooter path:**
 
-`src/main/assets/ventoy.disk.img`
+```text
+src/main/assets/ventoy.disk.img
+```
 
 **Purpose:**
 
-Contains the Ventoy VTOYEFI partition image written to the target USB
-device during Ventoy installation.
+Provides the official Ventoy VTOYEFI partition image used as the upstream
+reference and as the source of firmware-trusted EFI files used by the
+F-Droid build process.
 
 **Upstream project:** Ventoy
 
-**Upstream version:** `v1.1.17`
+**Upstream version:** `1.1.17`
 
-**Upstream release archive:**
+**Release archive path:**
 
-`ventoy-1.1.17-linux.tar.gz`
+```text
+ventoy-1.1.17/ventoy/ventoy.disk.img.xz
+```
 
-**Path inside the release archive:**
+**Acquisition method:**
 
-`ventoy-1.1.17/ventoy/ventoy.disk.img.xz`
+The image is losslessly decompressed from the official Ventoy release:
 
-**SHA-256 of the decompressed image:**
+```text
+xz -dc \
+    ventoy-1.1.17/ventoy/ventoy.disk.img.xz \
+    > ventoy.disk.img
+```
+
+**Original upstream SHA-256:**
 
 ```text
 871f313d60d865a8ee307bc97c961e6cb619143288b4faf811efe9844ca1a003
 ```
 
-### Acquisition
+This hash identifies the original official Ventoy 1.1.17 VTOYEFI image
+before any MultiBooter/F-Droid reconstruction.
 
-The file was obtained by losslessly decompressing:
+**Important:**
 
-`ventoy-1.1.17/ventoy/ventoy.disk.img.xz`
+The original upstream image and the deterministic MultiBooter-reconstructed
+image are intentionally treated as different artifacts.
 
-from the official Ventoy 1.1.17 Linux release archive.
-
-No modification is performed after decompression.
-
-Ventoy's upstream packaging process creates the VTOYEFI partition image as
-`ventoy.disk.img` and then compresses it using XZ for distribution.
-
-Some EFI executables contained in Ventoy distributions are cryptographically
-signed firmware components. Their exact binary representation may need to be
-preserved in order to retain valid firmware signatures.
+The original upstream hash above must not be presented as the hash of the
+final F-Droid rebuilt image.
 
 ---
 
-## Verification
+# 5. F-Droid reconstructed VTOYEFI image
 
-The bundled MultiBooter assets can be verified locally with:
+The F-Droid build does not simply redistribute the complete upstream
+`ventoy.disk.img`.
+
+Instead, the build process:
+
+1. obtains the pinned Ventoy 1.1.17 source tree;
+2. verifies the checked-in upstream reference image;
+3. extracts and verifies the firmware-trusted Secure Boot EFI binaries;
+4. inserts those verified binaries into the pinned Ventoy source tree;
+5. removes non-Secure-Boot prebuilt payloads excluded from the F-Droid build;
+6. reconstructs a deterministic 32 MiB FAT16 VTOYEFI image;
+7. places the reconstructed image in the APK.
+
+The reconstructed image therefore has a different SHA-256 from the original
+official upstream image.
+
+## 5.1 Rebuild inputs
+
+The rebuild uses the following Ventoy source locations:
+
+```text
+VENTOY_SRC/INSTALL/grub
+VENTOY_SRC/INSTALL/EFI
+VENTOY_SRC/INSTALL/ventoy
+VENTOY_SRC/INSTALL/tool/ENROLL_THIS_KEY_IN_MOKMANAGER.cer
+```
+
+The build uses deterministic metadata settings including:
+
+```text
+SOURCE_DATE_EPOCH = 1735689600
+TZ = UTC
+```
+
+The FAT image is created as:
+
+```text
+32 MiB
+FAT16
+Volume label: VTOYEFI
+FAT ID: 56544f59
+```
+
+The build also normalizes relevant file timestamps and uses deterministic
+ordering for archive and directory operations.
+
+## 5.2 Excluded non-Secure-Boot payloads
+
+For the F-Droid build, the following Ventoy prebuilt payloads are removed:
+
+```text
+INSTALL/ventoy/imdisk
+INSTALL/ventoy/memdisk
+INSTALL/ventoy/7z
+```
+
+In addition, GRUB i386 disk-image files under:
+
+```text
+INSTALL/grub/i386-pc/
+```
+
+are excluded from the reconstructed VTOYEFI image.
+
+These exclusions are part of the MultiBooter F-Droid packaging policy and are
+not applied to the documented original upstream SHA-256 baseline.
+
+## 5.3 Rebuilt image SHA-256
+
+The SHA-256 below must be generated from a clean F-Droid-compatible build of
+the exact source revision referenced by the F-Droid metadata.
+
+```text
+REPLACE_WITH_VERIFIED_FDROID_REBUILT_VTOYEFI_SHA256
+```
+
+This value must not be invented or copied from another project.
+
+After the first clean reproducible F-Droid build, the actual hash must replace
+the placeholder above and be recorded in the same commit as the corresponding
+build metadata.
+
+---
+
+# 6. Secure Boot EFI provenance
+
+The Ventoy 1.1.17 upstream `BLOB_List.md` identifies the following Secure Boot
+files as upstream or preserved firmware-trusted components.
+
+MultiBooter preserves these exact binaries rather than rebuilding them from
+source.
+
+This is necessary because rebuilding signed PE/EFI binaries can change their
+binary representation and invalidate their existing firmware-trusted
+signatures.
+
+## 6.1 BOOTX64.EFI
+
+**Path inside VTOYEFI:**
+
+```text
+EFI/BOOT/BOOTX64.EFI
+```
+
+**Role:**
+
+First-stage x86_64 UEFI Secure Boot loader / shim.
+
+**Origin:**
+
+Rocky Linux 9.8 x86_64 Secure Boot component, as documented by Ventoy
+`BLOB_List.md`.
+
+**SHA-256:**
+
+```text
+1ff3f223c2fcf5b11615d042fcb5674c4651bbbc8505b5b2987d60da0cb65d1a
+```
+
+**Policy:**
+
+Preserve the exact binary.
+
+Do not rebuild this file for packaging.
+
+---
+
+## 6.2 mmx64.efi
+
+**Path inside VTOYEFI:**
+
+```text
+EFI/BOOT/mmx64.efi
+```
+
+**Role:**
+
+MOK Manager used by the Secure Boot chain.
+
+**Origin:**
+
+Rocky Linux 9.8 x86_64 Secure Boot component, as documented by Ventoy
+`BLOB_List.md`.
+
+**SHA-256:**
+
+```text
+1a3687f923d077080fe49feb470e3932c2b1d3fd4c6439123aa0226246a24522
+```
+
+**Policy:**
+
+Preserve the exact binary.
+
+Do not rebuild this file for packaging.
+
+---
+
+## 6.3 fbx64.efi
+
+**Path inside VTOYEFI:**
+
+```text
+EFI/BOOT/fbx64.efi
+```
+
+**Role:**
+
+Ventoy Secure Boot fallback companion.
+
+**Origin:**
+
+Ventoy-provided signed fallback EFI component.
+
+**SHA-256:**
+
+```text
+c8fc4661f4b64b916e37e4fdd68042d3d64290a696add9199afb84c12ad896c8
+```
+
+**Policy:**
+
+Preserve the exact binary used by the pinned Ventoy release.
+
+Do not replace it with an independently rebuilt binary unless the upstream
+Ventoy release and its resulting signature/provenance are intentionally
+updated.
+
+---
+
+## 6.4 grubx64_real.efi
+
+**Path inside VTOYEFI:**
+
+```text
+EFI/BOOT/grubx64_real.efi
+```
+
+**Role:**
+
+Ventoy GRUB payload loaded as part of the x86_64 boot chain.
+
+**Origin:**
+
+Ventoy build output for the pinned Ventoy 1.1.17 release.
+
+**SHA-256:**
+
+```text
+907c99a8370e953eb4ec34df2c314cf979356bfca97733ccb1139ee3f5e98cce
+```
+
+**Policy:**
+
+Use the exact verified binary associated with the documented Ventoy 1.1.17
+asset baseline.
+
+---
+
+# 7. Secure Boot certificate
+
+## ENROLL_THIS_KEY_IN_MOKMANAGER.cer
+
+**Path inside the VTOYEFI image:**
+
+```text
+ENROLL_THIS_KEY_IN_MOKMANAGER.cer
+```
+
+**Purpose:**
+
+Ventoy certificate used for MOK enrollment where required by the Secure Boot
+workflow.
+
+**Upstream project:** Ventoy
+
+**Upstream version:** `1.1.17`
+
+**Source path in Ventoy:**
+
+```text
+INSTALL/tool/ENROLL_THIS_KEY_IN_MOKMANAGER.cer
+```
+
+This certificate is copied from the pinned Ventoy source/release tree when it
+is present.
+
+The exact certificate hash should be recorded whenever the asset is updated.
+
+For the current Ventoy 1.1.17 asset baseline, the expected SHA-256 is:
+
+```text
+8072e285ed57ffd63421beb52d5c27cb5ad70a8d7377b67b358f816f97012e27
+```
+
+---
+
+# 8. Verification of bundled upstream assets
+
+The original bundled Ventoy reference assets should verify as follows:
 
 ```bash
 sha256sum \
@@ -187,7 +488,7 @@ sha256sum \
     src/main/assets/ventoy.disk.img
 ```
 
-The expected output is:
+Expected output:
 
 ```text
 f37cbea83596aef9812f4d984d344b5103913505dfee40dc0025742ea54a6113  src/main/assets/boot.img
@@ -195,134 +496,307 @@ b6581090947e7cacbd3cee23dfe2216aee9ab368c6508c2c5f3490621e969b84  src/main/asset
 871f313d60d865a8ee307bc97c961e6cb619143288b4faf811efe9844ca1a003  src/main/assets/ventoy.disk.img
 ```
 
-The official Ventoy 1.1.17 Linux release archive can be verified separately
-with:
-
-```bash
-sha256sum ventoy-1.1.17-linux.tar.gz
-```
-
-Expected SHA-256:
+The official Ventoy archive itself should independently verify to:
 
 ```text
-7fb4ed08cef6a6b4d39dd19260d8c80291a78dfdf9af7d461571e23cbbc43805  ventoy-1.1.17-linux.tar.gz
+7fb4ed08cef6a6b4d39dd19260d8c80291a78dfdf9af7d461571e23cbbc43805
 ```
 
 ---
 
-## Reproduction from the Official Release
+# 9. Verification of Secure Boot binaries
 
-The bundled assets can be independently reproduced from the official Ventoy
-1.1.17 Linux release archive.
+The four x86_64 Secure Boot binaries must be extracted from the checked-in
+reference image and verified before they are injected into the pinned Ventoy
+source tree.
 
 Example:
 
 ```bash
-tar -xzf ventoy-1.1.17-linux.tar.gz
+mcopy -i src/main/assets/ventoy.disk.img \
+    ::/EFI/BOOT/BOOTX64.EFI \
+    /tmp/BOOTX64.EFI
 
-cp \
-    ventoy-1.1.17/boot/boot.img \
-    boot.img
+mcopy -i src/main/assets/ventoy.disk.img \
+    ::/EFI/BOOT/mmx64.efi \
+    /tmp/mmx64.efi
 
-xz -dc \
-    ventoy-1.1.17/boot/core.img.xz \
-    > core.img
+mcopy -i src/main/assets/ventoy.disk.img \
+    ::/EFI/BOOT/fbx64.efi \
+    /tmp/fbx64.efi
 
-xz -dc \
-    ventoy-1.1.17/ventoy/ventoy.disk.img.xz \
-    > ventoy.disk.img
+mcopy -i src/main/assets/ventoy.disk.img \
+    ::/EFI/BOOT/grubx64_real.efi \
+    /tmp/grubx64_real.efi
 ```
 
-The resulting files can then be checked with:
+Then:
 
 ```bash
 sha256sum \
-    boot.img \
-    core.img \
-    ventoy.disk.img
+    /tmp/BOOTX64.EFI \
+    /tmp/mmx64.efi \
+    /tmp/fbx64.efi \
+    /tmp/grubx64_real.efi
 ```
 
-They should produce the hashes documented above.
-
----
-
-## Runtime Behavior
-
-The bundled Ventoy assets are not executed as Android application code.
-
-MultiBooter accesses the selected USB mass-storage device through the Android
-USB Host API and writes the required Ventoy disk structures to that device.
-
-The general data flow is:
+Expected hashes:
 
 ```text
-Ventoy assets bundled in MultiBooter
-                |
-                v
-        Android USB Host API
-                |
-                v
-     USB Mass Storage / SCSI
-                |
-                v
-       User-selected USB drive
-                |
-                v
-      PC BIOS / UEFI boot process
+1ff3f223c2fcf5b11615d042fcb5674c4651bbbc8505b5b2987d60da0cb65d1a  /tmp/BOOTX64.EFI
+1a3687f923d077080fe49feb470e3932c2b1d3fd4c6439123aa0226246a24522  /tmp/mmx64.efi
+c8fc4661f4b64b916e37e4fdd68042d3d64290a696add9199afb84c12ad896c8  /tmp/fbx64.efi
+907c99a8370e953eb4ec34df2c314cf979356bfca97733ccb1139ee3f5e98cce  /tmp/grubx64_real.efi
 ```
 
-The Ventoy boot components are therefore intended for execution by the target
-computer's BIOS/UEFI boot environment after being written to the USB device,
-not by the Android runtime.
+Any mismatch must fail the build.
 
 ---
 
-## Runtime Downloads
+# 10. F-Droid source rebuild model
+
+The F-Droid build uses a pinned Ventoy source library:
+
+```text
+Ventoy@v1.1.17
+```
+
+The build process must not download executable components at runtime.
+
+The intended flow is:
+
+```text
+Pinned Ventoy 1.1.17 source
+            |
+            v
+Checked-in official reference image
+            |
+            v
+Extract Secure Boot EFI binaries
+            |
+            v
+Verify exact SHA-256 values
+            |
+            v
+Replace corresponding files in Ventoy source
+            |
+            v
+Remove excluded non-Secure-Boot prebuilt payloads
+            |
+            v
+Rebuild deterministic FAT16 VTOYEFI image
+            |
+            v
+Verify rebuilt image SHA-256
+            |
+            v
+Package image into MultiBooter APK
+```
+
+The build must fail if:
+
+- the Ventoy source version is not the pinned version;
+- the official reference image hash does not match;
+- any required Secure Boot binary is missing;
+- any Secure Boot binary has an unexpected SHA-256;
+- the rebuilt VTOYEFI image does not match its documented expected SHA-256.
+
+---
+
+# 11. Runtime asset policy
+
+MultiBooter does not execute the bundled Ventoy boot assets as Android
+application code.
+
+The assets are raw boot-media data.
+
+The intended runtime flow is:
+
+```text
+Bundled Ventoy assets
+        |
+        v
+Android USB Host API
+        |
+        v
+USB Mass Storage / SCSI
+        |
+        v
+User-selected USB device
+        |
+        v
+PC BIOS / UEFI boot environment
+```
+
+The Ventoy boot assets are therefore intended for execution by the target
+computer's firmware and boot environment after they have been written to the
+USB device.
 
 MultiBooter does not download Ventoy executable or boot components after
-installation.
-
-The required Ventoy boot assets are included in the application package.
-
-This allows the Ventoy installation feature to operate without fetching
-additional executable content from the network.
+application installation.
 
 ---
 
-## Licensing
+# 12. Runtime integrity verification
 
-MultiBooter is distributed under the GNU General Public License.
+Before any destructive Ventoy USB write operation begins, MultiBooter should
+verify the exact SHA-256 of every bundled asset used by the installer.
 
-Ventoy and all third-party components contained in the Ventoy boot images
-retain their respective upstream licenses.
+The verification policy is:
 
-MultiBooter does not claim ownership of the Ventoy boot components.
+```text
+boot.img
+    -> exact expected SHA-256
 
-For detailed information about Ventoy source code, third-party components,
-binary components and their licensing, refer to the official Ventoy
-repository:
+core.img
+    -> exact expected SHA-256
+
+ventoy.disk.img
+    -> exact expected SHA-256 of the shipped/reconstructed image
+```
+
+File-size checks alone are not sufficient to establish asset integrity.
+
+Asset verification must complete before the first destructive USB write.
+
+A verification failure must abort the installation.
+
+---
+
+# 13. Reproducibility and expected-output recording
+
+The repository records two different VTOYEFI image identities:
+
+### Official upstream reference
+
+```text
+871f313d60d865a8ee307bc97c961e6cb619143288b4faf811efe9844ca1a003
+```
+
+### MultiBooter/F-Droid reconstructed output
+
+```text
+REPLACE_WITH_VERIFIED_FDROID_REBUILT_VTOYEFI_SHA256
+```
+
+These hashes must not be conflated.
+
+After any intentional Ventoy asset update:
+
+1. update the pinned Ventoy version and tag;
+2. verify the upstream release archive hash;
+3. update the official asset hashes;
+4. update Secure Boot binary hashes when upstream changes them;
+5. rebuild the deterministic VTOYEFI image;
+6. record the resulting rebuilt-image SHA-256;
+7. update this document;
+8. update the F-Droid metadata;
+9. verify the final build from a clean environment.
+
+---
+
+# 14. Licensing
+
+MultiBooter is distributed under:
+
+```text
+GNU General Public License v3.0 or later
+```
+
+Ventoy and its third-party components retain their respective upstream
+licenses.
+
+The presence of a Ventoy-derived boot asset in MultiBooter does not transfer
+ownership of that asset to MultiBooter.
+
+Ventoy source, binary-component and licensing information is available from:
 
 https://github.com/ventoy/Ventoy
 
-and the upstream binary-component documentation:
+In particular:
 
 https://github.com/ventoy/Ventoy/blob/master/BLOB_List.md
 
+and the Ventoy project documentation.
+
+For Secure Boot components originating from other projects, the applicable
+upstream licensing and redistribution conditions remain in force.
+
 ---
 
-## Upstream Build Information
+# 15. Update policy
 
-Ventoy's upstream build and packaging process can be inspected in the
-official source repository.
+Ventoy assets are updated only when an intentional upstream version change is
+made.
 
-In particular, the upstream packaging process creates:
+An update must use the exact upstream Ventoy release tag and archive.
 
-- `boot/boot.img`
-- `boot/core.img`
-- `ventoy/ventoy.disk.img`
+The following must be reviewed together:
 
-The latter two images are compressed using XZ before being included in the
-official Linux release archive.
+```text
+Ventoy version
+Ventoy tag commit
+release archive SHA-256
+boot.img SHA-256
+core.img SHA-256
+official ventoy.disk.img SHA-256
+Secure Boot EFI hashes
+MOK certificate hash
+reconstructed VTOYEFI SHA-256
+F-Droid metadata
+runtime asset hashes
+```
 
-MultiBooter uses the corresponding decompressed images required for direct
-raw USB installation.
+No asset hash may be changed merely to make a build pass.
+
+A hash change must correspond to a documented upstream or packaging change.
+
+---
+
+# 16. Audit summary
+
+The provenance chain for the current Ventoy integration is:
+
+```text
+Ventoy v1.1.17
+    |
+    +-- tag: v1.1.17
+    |   commit: 7cbdc5cf69935bcf1f085ae67f40e70ea7e74bae
+    |
+    +-- release archive
+    |   SHA-256:
+    |   7fb4ed08cef6a6b4d39dd19260d8c80291a78dfdf9af7d461571e23cbbc43805
+    |
+    +-- boot.img
+    |   SHA-256:
+    |   f37cbea83596aef9812f4d984d344b5103913505dfee40dc0025742ea54a6113
+    |
+    +-- core.img
+    |   SHA-256:
+    |   b6581090947e7cacbd3cee23dfe2216aee9ab368c6508c2c5f3490621e969b84
+    |
+    +-- official ventoy.disk.img
+    |   SHA-256:
+    |   871f313d60d865a8ee307bc97c961e6cb619143288b4faf811efe9844ca1a003
+    |
+    +-- preserved Secure Boot components
+    |      BOOTX64.EFI
+    |      mmx64.efi
+    |      fbx64.efi
+    |      grubx64_real.efi
+    |
+    +-- pinned Ventoy source rebuild
+           |
+           +-- non-Secure-Boot blobs removed
+           |
+           +-- deterministic FAT16 image generated
+           |
+           +-- rebuilt SHA-256 recorded separately
+```
+
+The official upstream image is the provenance baseline.
+
+The reconstructed image is the F-Droid packaging artifact.
+
+The two artifacts have distinct identities and must remain separately
+documented.
