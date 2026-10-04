@@ -3,7 +3,7 @@ License: Unknown
 Builds:
   - versionName: v0.1.0
     versionCode: 1000
-    commit: 1eb91d30242e3cf38387e1e30b15ea726ff586a0
+    commit: 260a50ac64b7efb2de5c3f511fd82e1d879e2397
     sudo:
       - apt-get update
       - apt-get install -y dosfstools faketime mtools
