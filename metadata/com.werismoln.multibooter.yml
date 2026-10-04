@@ -18,7 +18,7 @@ Builds:
     sudo:
       - apt-get update
       - apt-get install -y dosfstools faketime mtools
-      - sdkmanager "platforms;android-37" "build-tools;37.0.0"
+      - sdkmanager "platforms;android-36" "build-tools;36.0.0"
     output: app-release-unsigned.apk
     srclibs:
       - Ventoy@v1.1.17
