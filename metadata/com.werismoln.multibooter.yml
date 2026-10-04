@@ -41,7 +41,7 @@ Builds:
         | sha256sum -c -
     build:
       - chmod +x build.sh
-      - VENTOY_SRC="$$Ventoy$$" ANDROID_NDK_HOME="$$NDK$$" VENTOY_IMAGE_EPOCH=1735689600 
+      - VENTOY_SRC="$$Ventoy$$" ANDROID_NDK_HOME="$$NDK$$" VENTOY_IMAGE_EPOCH=1735689600
         ./build.sh
     ndk: 30.0.16248370
 
