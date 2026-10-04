@@ -39,6 +39,7 @@ AAPT2="$BUILD_TOOLS/aapt2"
 AAPT="$BUILD_TOOLS/aapt"
 ZIPALIGN="$BUILD_TOOLS/zipalign"
 
+# Optional explicit D8 JAR path.
 D8_JAR="${D8_JAR:-}"
 
 VENTOY_SRC="${VENTOY_SRC:-}"
@@ -72,6 +73,7 @@ verify_sha256() {
     local actual
 
     [[ -f "$file" ]] || fail "$label bulunamadi: $file"
+
     actual="$(sha256sum "$file" | awk '{print $1}')"
 
     if [[ "$actual" != "$expected" ]]; then
@@ -157,17 +159,19 @@ echo "[OK] Project root: $PROJECT_ROOT"
 echo "[OK] Android API: $ANDROID_API"
 echo "[OK] Build Tools: $BUILD_TOOLS_VERSION"
 echo "[OK] NDK: $NDK_VERSION"
+
 if [[ -n "$D8_BIN" ]]; then
     echo "[OK] D8: $D8_BIN"
 else
     echo "[OK] D8 JAR: $D8_JAR"
 fi
+
 echo
 
 echo "[1/15] Eski build temizleniyor..."
 
 rm -rf gen obj dex-out lib
-rm -f compiled_res.zip sources.txt classes-input.jar classes.dex
+rm -f compiled_res.zip sources.txt classes.dex
 rm -f app-unaligned.apk app-aligned.apk app-release.apk app-release-unsigned.apk
 
 mkdir -p gen obj dex-out
@@ -214,13 +218,28 @@ fi
     exit 1
 }
 
-# These signed EFI binaries are deliberately pinned. F-Droid metadata may
-# remove and restore them from the checked-in reference image; the build must
-# reject any unexpected replacement before packaging them into the rebuilt image.
-verify_sha256 "$VENTOY_SRC/INSTALL/EFI/BOOT/BOOTX64.EFI" "$EFI_BOOTX64_SHA256" "Ventoy BOOTX64.EFI"
-verify_sha256 "$VENTOY_SRC/INSTALL/EFI/BOOT/mmx64.efi" "$EFI_MMX64_SHA256" "Ventoy mmx64.efi"
-verify_sha256 "$VENTOY_SRC/INSTALL/EFI/BOOT/fbx64.efi" "$EFI_FBX64_SHA256" "Ventoy fbx64.efi"
-verify_sha256 "$VENTOY_SRC/INSTALL/EFI/BOOT/grubx64_real.efi" "$EFI_GRUBX64_REAL_SHA256" "Ventoy grubx64_real.efi"
+# These signed EFI binaries are deliberately pinned.
+# F-Droid metadata may remove and restore them from the checked-in reference image;
+# the build must reject any unexpected replacement before packaging them into the rebuilt image.
+verify_sha256 \
+    "$VENTOY_SRC/INSTALL/EFI/BOOT/BOOTX64.EFI" \
+    "$EFI_BOOTX64_SHA256" \
+    "Ventoy BOOTX64.EFI"
+
+verify_sha256 \
+    "$VENTOY_SRC/INSTALL/EFI/BOOT/mmx64.efi" \
+    "$EFI_MMX64_SHA256" \
+    "Ventoy mmx64.efi"
+
+verify_sha256 \
+    "$VENTOY_SRC/INSTALL/EFI/BOOT/fbx64.efi" \
+    "$EFI_FBX64_SHA256" \
+    "Ventoy fbx64.efi"
+
+verify_sha256 \
+    "$VENTOY_SRC/INSTALL/EFI/BOOT/grubx64_real.efi" \
+    "$EFI_GRUBX64_REAL_SHA256" \
+    "Ventoy grubx64_real.efi"
 
 echo "[OK] Ventoy kaynaklari bulundu ve kritik Secure Boot varliklari dogrulandi: $VENTOY_SRC"
 echo
@@ -273,6 +292,7 @@ find "$GRUB_DIR" \
     rm -rf ./help
 
     if [[ -d menu ]]; then
+
         vtlangtitle="$(
             grep VTLANG_LANGUAGE_NAME menu/zh_CN.json |
             awk -F\" '{print $4}'
@@ -289,22 +309,26 @@ find "$GRUB_DIR" \
                 -type f \
                 ! -name zh_CN.json \
                 -printf '%f\n' |
-                sort |
-                while read -r vtlang; do
-                    vtlangname="${vtlang%.*}"
-                    vtlangtitle="$(
-                        grep VTLANG_LANGUAGE_NAME "menu/$vtlang" |
-                        awk -F\" '{print $4}'
-                    )"
+            sort |
+            while read -r vtlang; do
 
-                    echo "menuentry \"$vtlangname  -  $vtlangtitle\" --class=menu_lang_item --class=debug_menu_lang --class=F5tool {"
-                    echo "    vt_load_menu_lang $vtlangname"
-                    echo "}"
-                done
+                vtlangname="${vtlang%.*}"
+
+                vtlangtitle="$(
+                    grep VTLANG_LANGUAGE_NAME "menu/$vtlang" |
+                    awk -F\" '{print $4}'
+                )"
+
+                echo "menuentry \"$vtlangname  -  $vtlangtitle\" --class=menu_lang_item --class=debug_menu_lang --class=F5tool {"
+                echo "    vt_load_menu_lang $vtlangname"
+                echo "}"
+
+            done
 
             echo 'menuentry "$VTLANG_RETURN_PREVIOUS" --class=vtoyret VTOY_RET {'
             echo '        echo "Return ..."'
             echo "}"
+
         } > menulang.cfg
 
         tar \
@@ -380,42 +404,54 @@ copy_tree() {
         sort |
         while read -r child; do
 
-            local base
-            base="$(basename "$child")"
+        local base
+        base="$(basename "$child")"
 
-            if [[ -d "$child" ]]; then
-                copy_tree "$child" "$dst/$base"
-            else
-                mcopy \
-                    -m \
-                    -i "$VENTOY_IMAGE" \
-                    "$child" \
-                    "$dst/$base"
-            fi
-        done
+        if [[ -d "$child" ]]; then
+            copy_tree "$child" "$dst/$base"
+        else
+            mcopy \
+                -m \
+                -i "$VENTOY_IMAGE" \
+                "$child" \
+                "$dst/$base"
+        fi
+
+    done
 }
 
 copy_tree "$VENTOY_WORK_DIR/root" ::
 
-[[ -f "$VENTOY_IMAGE" ]] || fail "Ventoy disk image olusturulamadi: $VENTOY_IMAGE"
+[[ -f "$VENTOY_IMAGE" ]] ||
+    fail "Ventoy disk image olusturulamadi: $VENTOY_IMAGE"
 
 VENTOY_IMAGE_SIZE="$(stat -c%s "$VENTOY_IMAGE")"
+
 [[ "$VENTOY_IMAGE_SIZE" -eq 33554432 ]] ||
     fail "Rebuilt Ventoy VTOYEFI image boyutu 33554432 byte olmali; gercek: $VENTOY_IMAGE_SIZE"
 
-VENTOY_REBUILT_SHA256="$(sha256sum "$VENTOY_IMAGE" | awk '{print $1}')"
+VENTOY_REBUILT_SHA256="$(
+    sha256sum "$VENTOY_IMAGE" |
+    awk '{print $1}'
+)"
+
 echo "[INFO] Rebuilt Ventoy VTOYEFI SHA-256: $VENTOY_REBUILT_SHA256"
 
 if [[ -n "$VENTOY_EXPECTED_REBUILT_SHA256" ]]; then
+
     if [[ "$VENTOY_REBUILT_SHA256" != "$VENTOY_EXPECTED_REBUILT_SHA256" ]]; then
         echo "[ERROR] Rebuilt Ventoy VTOYEFI SHA-256 beklenen degerle eslesmiyor." >&2
         echo "[ERROR] Beklenen: $VENTOY_EXPECTED_REBUILT_SHA256" >&2
         echo "[ERROR] Gercek:    $VENTOY_REBUILT_SHA256" >&2
         exit 1
     fi
+
     echo "[OK] Rebuilt Ventoy VTOYEFI SHA-256 beklenen degerle dogrulandi."
+
 else
+
     echo "[WARN] VENTOY_EXPECTED_REBUILT_SHA256 ayarlanmadi; rebuilt image hash karsilastirmasi zorunlu degil."
+
 fi
 
 echo "[OK] Ventoy disk image yeniden olusturuldu."
@@ -423,8 +459,15 @@ echo
 
 echo "[5/15] Paketlenecek Ventoy assetleri dogrulaniyor..."
 
-verify_sha256 "src/main/assets/boot.img" "$BOOT_IMG_SHA256" "boot.img"
-verify_sha256 "src/main/assets/core.img" "$CORE_IMG_SHA256" "core.img"
+verify_sha256 \
+    "src/main/assets/boot.img" \
+    "$BOOT_IMG_SHA256" \
+    "boot.img"
+
+verify_sha256 \
+    "src/main/assets/core.img" \
+    "$CORE_IMG_SHA256" \
+    "core.img"
 
 [[ "$(stat -c%s src/main/assets/boot.img)" -eq 512 ]] ||
     fail "boot.img boyutu 512 byte olmali."
@@ -450,28 +493,35 @@ done
 for abi in arm64-v8a armeabi-v7a x86 x86_64; do
 
     case "$abi" in
+
         arm64-v8a)
             target="aarch64-linux-android$ANDROID_API"
             ;;
+
         armeabi-v7a)
             target="armv7a-linux-androideabi$ANDROID_API"
             ;;
+
         x86)
             target="i686-linux-android$ANDROID_API"
             ;;
+
         x86_64)
             target="x86_64-linux-android$ANDROID_API"
             ;;
+
         *)
             echo "[ERROR] Bilinmeyen ABI: $abi"
             exit 1
             ;;
+
     esac
 
     echo
     echo "[ABI $abi] Target: $target"
 
     echo "[$abi 1/5] libgadget.so"
+
     "$CLANG" \
         --target="$target" \
         -shared \
@@ -483,6 +533,7 @@ for abi in arm64-v8a armeabi-v7a x86 x86_64; do
         -o "lib/$abi/libgadget.so"
 
     echo "[$abi 2/5] libscsi.so"
+
     "$CLANG" \
         --target="$target" \
         -shared \
@@ -494,6 +545,7 @@ for abi in arm64-v8a armeabi-v7a x86 x86_64; do
         -o "lib/$abi/libscsi.so"
 
     echo "[$abi 3/5] libtftp.so"
+
     "$CLANG" \
         --target="$target" \
         -shared \
@@ -506,6 +558,7 @@ for abi in arm64-v8a armeabi-v7a x86 x86_64; do
         -o "lib/$abi/libtftp.so"
 
     echo "[$abi 4/5] libexfat.so"
+
     "$CLANG" \
         --target="$target" \
         -shared \
@@ -518,6 +571,7 @@ for abi in arm64-v8a armeabi-v7a x86 x86_64; do
         -o "lib/$abi/libexfat.so"
 
     echo "[$abi 5/5] libfunctionfs.so"
+
     "$CLANG" \
         --target="$target" \
         -shared \
@@ -529,6 +583,7 @@ for abi in arm64-v8a armeabi-v7a x86 x86_64; do
         -pthread \
         -llog \
         -o "lib/$abi/libfunctionfs.so"
+
 done
 
 echo
@@ -559,26 +614,32 @@ if [[ -f "$DNSMASQ_SRC/dnsmasq.c" ]]; then
     for abi in arm64-v8a armeabi-v7a x86 x86_64; do
 
         case "$abi" in
+
             arm64-v8a)
                 target="aarch64-linux-android$ANDROID_API"
                 output="$DNSMASQ_ASSETS/dnsmasq-arm64-v8a"
                 ;;
+
             armeabi-v7a)
                 target="armv7a-linux-androideabi$ANDROID_API"
                 output="$DNSMASQ_ASSETS/dnsmasq-armeabi-v7a"
                 ;;
+
             x86)
                 target="i686-linux-android$ANDROID_API"
                 output="$DNSMASQ_ASSETS/dnsmasq-x86"
                 ;;
+
             x86_64)
                 target="x86_64-linux-android$ANDROID_API"
                 output="$DNSMASQ_ASSETS/dnsmasq-x86_64"
                 ;;
+
             *)
                 echo "[ERROR] Bilinmeyen dnsmasq ABI: $abi"
                 exit 1
                 ;;
+
         esac
 
         echo
@@ -604,6 +665,7 @@ if [[ -f "$DNSMASQ_SRC/dnsmasq.c" ]]; then
         }
 
         echo "[OK] $abi dnsmasq hazir."
+
     done
 
 else
@@ -611,11 +673,14 @@ else
     echo "[INFO] dnsmasq kaynaklari bulunamadi; mevcut 4 ABI asset kontrol ediliyor."
 
     for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+
         [[ -f "$DNSMASQ_ASSETS/dnsmasq-$abi" ]] || {
             echo "[ERROR] $DNSMASQ_ASSETS/dnsmasq-$abi bulunamadi."
             exit 1
         }
+
     done
+
 fi
 
 echo
@@ -669,14 +734,11 @@ javac \
 echo "[OK] Java derlendi."
 echo
 
-echo "[11/15] Class dosyalari JAR yapiliyor..."
-
-jar cf classes-input.jar -C obj .
-
-echo "[OK] classes-input.jar hazir."
+echo "[11/15] D8 ile DEX uretiliyor..."
 echo
 
-echo "[12/15] D8 ile DEX uretiliyor..."
+rm -rf dex-out
+mkdir -p dex-out
 
 if [[ -n "$D8_BIN" ]]; then
 
@@ -685,7 +747,7 @@ if [[ -n "$D8_BIN" ]]; then
         --min-api 26 \
         --lib "$PLATFORM" \
         --output dex-out \
-        classes-input.jar
+        obj
 
 else
 
@@ -696,7 +758,7 @@ else
         --min-api 26 \
         --lib "$PLATFORM" \
         --output dex-out \
-        classes-input.jar
+        obj
 
 fi
 
@@ -708,7 +770,7 @@ fi
 echo "[OK] D8 tamamlandi."
 echo
 
-echo "[13/15] DEX ve native kutuphaneler APK'ya ekleniyor..."
+echo "[12/15] DEX ve native kutuphaneler APK'ya ekleniyor..."
 
 cp dex-out/classes.dex classes.dex
 
@@ -716,13 +778,13 @@ jar uf app-unaligned.apk \
     classes.dex \
     lib
 
-rm -f classes.dex classes-input.jar
+rm -f classes.dex
 rm -rf dex-out
 
 echo "[OK] DEX ve native kutuphaneler eklendi."
 echo
 
-echo "[14/15] APK icerigi kontrol ediliyor..."
+echo "[13/15] APK icerigi kontrol ediliyor..."
 
 "$AAPT" list app-unaligned.apk |
     grep -Fxq "classes.dex" || {
@@ -739,20 +801,25 @@ for abi in arm64-v8a armeabi-v7a x86 x86_64; do
         libexfat.so \
         libfunctionfs.so
     do
+
         "$AAPT" list app-unaligned.apk |
             grep -Fxq "lib/$abi/$libname" || {
                 echo "[ERROR] lib/$abi/$libname APK icinde yok."
                 exit 1
             }
+
     done
+
 done
 
 for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+
     "$AAPT" list app-unaligned.apk |
         grep -Fxq "assets/dnsmasq-$abi" || {
             echo "[ERROR] assets/dnsmasq-$abi APK icinde yok."
             exit 1
         }
+
 done
 
 "$AAPT" list app-unaligned.apk |
@@ -761,7 +828,9 @@ done
         exit 1
     }
 
-if "$AAPT" list app-unaligned.apk | grep -Fx "assets/ventoy.disk.img.sha256" >/dev/null; then
+if "$AAPT" list app-unaligned.apk |
+    grep -Fx "assets/ventoy.disk.img.sha256" >/dev/null
+then
     echo "[ERROR] assets/ventoy.disk.img.sha256 APK icinde olmamali."
     exit 1
 fi
@@ -769,7 +838,7 @@ fi
 echo "[OK] APK icerigi dogru."
 echo
 
-echo "[15/15] APK align ediliyor ve dogrulaniyor..."
+echo "[14/15] APK align ediliyor ve dogrulaniyor..."
 
 "$ZIPALIGN" \
     -f \
