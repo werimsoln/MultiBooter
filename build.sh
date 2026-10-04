@@ -17,7 +17,7 @@ EFI_GRUBX64_REAL_SHA256="907c99a8370e953eb4ec34df2c314cf979356bfca97733ccb1139ee
 VENTOY_VERSION="${VENTOY_VERSION:-1.1.17}"
 # Optional: set this to the documented hash of the deterministic rebuilt image.
 # F-Droid/reproducibility builds should set it so a hash mismatch is fatal.
-VENTOY_EXPECTED_REBUILT_SHA256="${VENTOY_EXPECTED_REBUILT_SHA256:-}"
+VENTOY_EXPECTED_REBUILT_SHA256="830d225ec39c06dcd57fd38f38ae784a1123588b2f27cde9e9a49e86d6fc2113"
 
 echo "=========================================="
 echo "      MultiBooter F-Droid BUILD"

@@ -293,7 +293,7 @@ The SHA-256 below must be generated from a clean F-Droid-compatible build of
 the exact source revision referenced by the F-Droid metadata.
 
 ```text
-REPLACE_WITH_VERIFIED_FDROID_REBUILT_VTOYEFI_SHA256
+830d225ec39c06dcd57fd38f38ae784a1123588b2f27cde9e9a49e86d6fc2113
 ```
 
 This value must not be invented or copied from another project.
