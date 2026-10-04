@@ -660,6 +660,7 @@ done < <(
 
 javac \
     --release 8 \
+    -g:lines,source \
     -encoding UTF-8 \
     -d obj \
     -cp "$PLATFORM" \
