@@ -7,6 +7,7 @@ cd "$PROJECT_ROOT"
 
 # Pinned integrity data for assets that must remain byte-for-byte stable.
 # These values are also documented in ASSET_PROVENANCE.md.
+VENTOY_DISK_IMG_SHA256="871f313d60d865a8ee307bc97c961e6cb619143288b4faf811efe9844ca1a003"
 BOOT_IMG_SHA256="f37cbea83596aef9812f4d984d344b5103913505dfee40dc0025742ea54a6113"
 CORE_IMG_SHA256="b6581090947e7cacbd3cee23dfe2216aee9ab368c6508c2c5f3490621e969b84"
 EFI_BOOTX64_SHA256="1ff3f223c2fcf5b11615d042fcb5674c4651bbbc8505b5b2987d60da0cb65d1a"
@@ -15,8 +16,8 @@ EFI_FBX64_SHA256="c8fc4661f4b64b916e37e4fdd68042d3d64290a696add9199afb84c12ad896
 EFI_GRUBX64_REAL_SHA256="907c99a8370e953eb4ec34df2c314cf979356bfca97733ccb1139ee3f5e98cce"
 
 VENTOY_VERSION="${VENTOY_VERSION:-1.1.17}"
-# Optional: set this to the documented hash of the deterministic rebuilt image.
-# F-Droid/reproducibility builds should set it so a hash mismatch is fatal.
+# SHA-256 of the deterministic F-Droid-rebuilt Ventoy VTOYEFI image.
+# A mismatch is fatal and must stop the build.
 VENTOY_EXPECTED_REBUILT_SHA256="830d225ec39c06dcd57fd38f38ae784a1123588b2f27cde9e9a49e86d6fc2113"
 
 echo "=========================================="
@@ -376,6 +377,11 @@ find "$VENTOY_WORK_DIR/root" \
     -exec touch -h -d "@$SOURCE_DATE_EPOCH" '{}' +
 
 mkdir -p "$(dirname "$VENTOY_IMAGE")"
+
+verify_sha256 \
+    "$VENTOY_IMAGE" \
+    "$VENTOY_DISK_IMG_SHA256" \
+    "upstream ventoy.disk.img"
 
 rm -f "$VENTOY_IMAGE"
 

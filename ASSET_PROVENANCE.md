@@ -676,7 +676,7 @@ The repository records two different VTOYEFI image identities:
 ### MultiBooter/F-Droid reconstructed output
 
 ```text
-REPLACE_WITH_VERIFIED_FDROID_REBUILT_VTOYEFI_SHA256
+830d225ec39c06dcd57fd38f38ae784a1123588b2f27cde9e9a49e86d6fc2113
 ```
 
 These hashes must not be conflated.
