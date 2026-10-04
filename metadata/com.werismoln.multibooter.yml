@@ -14,7 +14,7 @@ Repo: https://github.com/werimsoln/MultiBooter.git
 Builds:
   - versionName: v0.1.0
     versionCode: 1000
-    commit: 055c434db12f24813b7cdb5aaf9e9dee4e7e8933
+    commit: 5844b4f6b92cf72772d77bfc6c1fcb58a1240249
     sudo:
       - apt-get update
       - apt-get install -y dosfstools faketime mtools
