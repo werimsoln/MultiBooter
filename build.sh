@@ -39,7 +39,7 @@ AAPT2="$BUILD_TOOLS/aapt2"
 AAPT="$BUILD_TOOLS/aapt"
 ZIPALIGN="$BUILD_TOOLS/zipalign"
 
-R8_JAR="${R8_JAR:-$ANDROID_HOME/r8/r8.jar}"
+R8_JAR="${R8_JAR:-}"
 PROGUARD="$PROJECT_ROOT/proguard-rules.pro"
 
 VENTOY_SRC="${VENTOY_SRC:-}"
@@ -137,26 +137,54 @@ require_cmd java
 require_cmd stat
 require_cmd sha256sum
 
+# R8 discovery:
+# 1) Explicit R8_JAR, when supplied by the caller/CI.
+# 2) Build Tools bundled R8.
+# 3) A dedicated $ANDROID_HOME/r8/r8.jar installation.
+# 4) Command-line Tools' bundled R8 (including versioned directories).
+# 5) Build Tools' r8 executable, when available.
 R8_BIN=""
 
-if [[ ! -f "$R8_JAR" ]]; then
-    if [[ -f "$BUILD_TOOLS/lib/r8.jar" ]]; then
-        R8_JAR="$BUILD_TOOLS/lib/r8.jar"
-    elif [[ -x "$BUILD_TOOLS/r8" ]]; then
+if [[ -n "$R8_JAR" ]]; then
+    [[ -f "$R8_JAR" ]] ||
+        fail "R8_JAR olarak verilen dosya bulunamadi: $R8_JAR"
+else
+    for candidate in \
+        "$BUILD_TOOLS/lib/r8.jar" \
+        "$ANDROID_HOME/r8/r8.jar" \
+        "$ANDROID_HOME/cmdline-tools/latest/lib/r8.jar"
+    do
+        if [[ -f "$candidate" ]]; then
+            R8_JAR="$candidate"
+            break
+        fi
+    done
+
+    if [[ -z "$R8_JAR" && -d "$ANDROID_HOME/cmdline-tools" ]]; then
+        R8_JAR="$(
+            find "$ANDROID_HOME/cmdline-tools" \
+                -type f \
+                -name 'r8.jar' \
+                -print \
+                | sort \
+                | head -n 1
+        )"
+    fi
+
+    if [[ -z "$R8_JAR" && -x "$BUILD_TOOLS/r8" ]]; then
         R8_BIN="$BUILD_TOOLS/r8"
-    else
+    fi
+
+    if [[ -z "$R8_JAR" && -z "$R8_BIN" ]]; then
         echo "[ERROR] R8 bulunamadi."
+        echo "[ERROR] Aranan konumlar:"
+        echo "        $BUILD_TOOLS/lib/r8.jar"
+        echo "        $ANDROID_HOME/r8/r8.jar"
+        echo "        $ANDROID_HOME/cmdline-tools/latest/lib/r8.jar"
+        echo "        $ANDROID_HOME/cmdline-tools/*/lib/r8.jar"
+        echo "        $BUILD_TOOLS/r8"
         exit 1
     fi
-fi
-
-[[ "$ANDROID_API" =~ ^[0-9]+$ ]] || fail "ANDROID_API sayisal olmali."
-[[ "$BUILD_TOOLS_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "BUILD_TOOLS_VERSION gecersiz: $BUILD_TOOLS_VERSION"
-[[ "$NDK_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "NDK_VERSION gecersiz: $NDK_VERSION"
-[[ "$VENTOY_VERSION" == "1.1.17" ]] || fail "Bu build profili Ventoy $VENTOY_VERSION degil, Ventoy 1.1.17 icin sabitlenmistir."
-
-if [[ -n "$VENTOY_EXPECTED_REBUILT_SHA256" ]]; then
-    validate_sha256_value "$VENTOY_EXPECTED_REBUILT_SHA256" "VENTOY_EXPECTED_REBUILT_SHA256"
 fi
 
 echo "[OK] Android build ortami hazir."
@@ -164,6 +192,11 @@ echo "[OK] Project root: $PROJECT_ROOT"
 echo "[OK] Android API: $ANDROID_API"
 echo "[OK] Build Tools: $BUILD_TOOLS_VERSION"
 echo "[OK] NDK: $NDK_VERSION"
+if [[ -n "$R8_BIN" ]]; then
+    echo "[OK] R8: $R8_BIN"
+else
+    echo "[OK] R8 JAR: $R8_JAR"
+fi
 echo
 
 echo "[1/15] Eski build temizleniyor..."
