@@ -18,11 +18,11 @@ Builds:
     sudo:
       - apt-get update
       - apt-get install -y dosfstools faketime mtools
-      - sdkmanager "platforms;android-36" "build-tools;36.0.0"
     output: app-release-unsigned.apk
     srclibs:
-      - Ventoy@v1.1.17
+      - Ventoy@7cbdc5cf69935bcf1f085ae67f40e70ea7e74bae
     prebuild:
+      - sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - rm -f "$$Ventoy$$/INSTALL/EFI/BOOT/BOOTX64.EFI"
       - rm -f "$$Ventoy$$/INSTALL/EFI/BOOT/mmx64.efi"
       - rm -f "$$Ventoy$$/INSTALL/EFI/BOOT/fbx64.efi"
@@ -41,7 +41,7 @@ Builds:
         | sha256sum -c -
     build:
       - chmod +x build.sh
-      - VENTOY_SRC="$$Ventoy$$" ANDROID_NDK_HOME="$$NDK$$" ./build.sh
+      - VENTOY_SRC="$Ventoy$" ANDROID_NDK_HOME="$NDK$" VENTOY_IMAGE_EPOCH=1735689600 ./build.sh
     ndk: 30.0.16248370
 
 AutoUpdateMode: Version
