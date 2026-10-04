@@ -39,7 +39,7 @@ AAPT2="$BUILD_TOOLS/aapt2"
 AAPT="$BUILD_TOOLS/aapt"
 ZIPALIGN="$BUILD_TOOLS/zipalign"
 
-R8_JAR="${R8_JAR:-}"
+D8_JAR="${D8_JAR:-}"
 PROGUARD="$PROJECT_ROOT/proguard-rules.pro"
 
 VENTOY_SRC="${VENTOY_SRC:-}"
@@ -137,54 +137,25 @@ require_cmd java
 require_cmd stat
 require_cmd sha256sum
 
-# R8 discovery:
-# 1) Explicit R8_JAR, when supplied by the caller/CI.
-# 2) Build Tools bundled R8.
-# 3) A dedicated $ANDROID_HOME/r8/r8.jar installation.
-# 4) Command-line Tools' bundled R8 (including versioned directories).
-# 5) Build Tools' r8 executable, when available.
-R8_BIN=""
+# D8 discovery:
+# 1) Explicit D8_JAR, when supplied by the caller/CI.
+# 2) Build Tools bundled D8 (lib/d8.jar).
+# 3) Build Tools' d8 executable wrapper.
+D8_BIN=""
 
-if [[ -n "$R8_JAR" ]]; then
-    [[ -f "$R8_JAR" ]] ||
-        fail "R8_JAR olarak verilen dosya bulunamadi: $R8_JAR"
+if [[ -n "$D8_JAR" ]]; then
+    [[ -f "$D8_JAR" ]] ||
+        fail "D8_JAR olarak verilen dosya bulunamadi: $D8_JAR"
+elif [[ -f "$BUILD_TOOLS/lib/d8.jar" ]]; then
+    D8_JAR="$BUILD_TOOLS/lib/d8.jar"
+elif [[ -x "$BUILD_TOOLS/d8" ]]; then
+    D8_BIN="$BUILD_TOOLS/d8"
 else
-    for candidate in \
-        "$BUILD_TOOLS/lib/r8.jar" \
-        "$ANDROID_HOME/r8/r8.jar" \
-        "$ANDROID_HOME/cmdline-tools/latest/lib/r8.jar"
-    do
-        if [[ -f "$candidate" ]]; then
-            R8_JAR="$candidate"
-            break
-        fi
-    done
-
-    if [[ -z "$R8_JAR" && -d "$ANDROID_HOME/cmdline-tools" ]]; then
-        R8_JAR="$(
-            find "$ANDROID_HOME/cmdline-tools" \
-                -type f \
-                -name 'r8.jar' \
-                -print \
-                | sort \
-                | head -n 1
-        )"
-    fi
-
-    if [[ -z "$R8_JAR" && -x "$BUILD_TOOLS/r8" ]]; then
-        R8_BIN="$BUILD_TOOLS/r8"
-    fi
-
-    if [[ -z "$R8_JAR" && -z "$R8_BIN" ]]; then
-        echo "[ERROR] R8 bulunamadi."
-        echo "[ERROR] Aranan konumlar:"
-        echo "        $BUILD_TOOLS/lib/r8.jar"
-        echo "        $ANDROID_HOME/r8/r8.jar"
-        echo "        $ANDROID_HOME/cmdline-tools/latest/lib/r8.jar"
-        echo "        $ANDROID_HOME/cmdline-tools/*/lib/r8.jar"
-        echo "        $BUILD_TOOLS/r8"
-        exit 1
-    fi
+    echo "[ERROR] D8 bulunamadi."
+    echo "[ERROR] Aranan konumlar:"
+    echo "        $BUILD_TOOLS/lib/d8.jar"
+    echo "        $BUILD_TOOLS/d8"
+    exit 1
 fi
 
 echo "[OK] Android build ortami hazir."
@@ -192,10 +163,10 @@ echo "[OK] Project root: $PROJECT_ROOT"
 echo "[OK] Android API: $ANDROID_API"
 echo "[OK] Build Tools: $BUILD_TOOLS_VERSION"
 echo "[OK] NDK: $NDK_VERSION"
-if [[ -n "$R8_BIN" ]]; then
-    echo "[OK] R8: $R8_BIN"
+if [[ -n "$D8_BIN" ]]; then
+    echo "[OK] D8: $D8_BIN"
 else
-    echo "[OK] R8 JAR: $R8_JAR"
+    echo "[OK] D8 JAR: $D8_JAR"
 fi
 echo
 
@@ -710,28 +681,27 @@ jar cf classes-input.jar -C obj .
 echo "[OK] classes-input.jar hazir."
 echo
 
-echo "[12/15] R8 shrink + optimize + obfuscate..."
+echo "[12/15] D8 ile DEX uretiliyor (shrink/obfuscate yok)..."
 
-if [[ -n "$R8_BIN" ]]; then
+# Not: cikti dizini adi eski haliyle (r8-out) birakildi.
+if [[ -n "$D8_BIN" ]]; then
 
-    "$R8_BIN" \
+    "$D8_BIN" \
         --release \
         --min-api 26 \
         --lib "$PLATFORM" \
         --output r8-out \
-        --pg-conf "$PROGUARD" \
         classes-input.jar
 
 else
 
     java \
-        -cp "$R8_JAR" \
-        com.android.tools.r8.R8 \
+        -cp "$D8_JAR" \
+        com.android.tools.r8.D8 \
         --release \
         --min-api 26 \
         --lib "$PLATFORM" \
         --output r8-out \
-        --pg-conf "$PROGUARD" \
         classes-input.jar
 
 fi
@@ -741,7 +711,7 @@ fi
     exit 1
 }
 
-echo "[OK] R8 tamamlandi."
+echo "[OK] D8 tamamlandi."
 echo
 
 echo "[13/15] DEX ve native kutuphaneler APK'ya ekleniyor..."
