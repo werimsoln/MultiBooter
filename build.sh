@@ -740,6 +740,10 @@ echo
 rm -rf dex-out
 mkdir -p dex-out
 
+rm -f classes-input.jar
+
+jar cf classes-input.jar -C obj .
+
 if [[ -n "$D8_BIN" ]]; then
 
     "$D8_BIN" \
@@ -747,7 +751,7 @@ if [[ -n "$D8_BIN" ]]; then
         --min-api 26 \
         --lib "$PLATFORM" \
         --output dex-out \
-        obj
+        classes-input.jar
 
 else
 
@@ -758,17 +762,9 @@ else
         --min-api 26 \
         --lib "$PLATFORM" \
         --output dex-out \
-        obj
+        classes-input.jar
 
 fi
-
-[[ -f dex-out/classes.dex ]] || {
-    echo "[ERROR] classes.dex olusmadi."
-    exit 1
-}
-
-echo "[OK] D8 tamamlandi."
-echo
 
 echo "[12/15] DEX ve native kutuphaneler APK'ya ekleniyor..."
 
