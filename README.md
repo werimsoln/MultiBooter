@@ -115,15 +115,16 @@ style clean build environment.
 Required components include:
 
 - JDK providing `javac`, `java` and `jar`
-- Android SDK Platform 34
-- Android Build Tools 34.0.0
+- Android SDK Platform 36
+- Android Build Tools 36.0.0
 - Android NDK 30.0.16248370
-- R8
+- D8
 - `awk`
 - `date`
 - `dd`
 - `faketime`
 - `find`
+- `git`
 - `grep`
 - `gzip`
 - `mkfs.vfat`
@@ -131,13 +132,15 @@ Required components include:
 - `mmd`
 - `sha256sum`
 - `sort`
+- `stat`
 - `tar`
 - `touch`
+- `unzip`
 
 The Android SDK and NDK are expected below `ANDROID_HOME` (or
 `ANDROID_SDK_ROOT`).
 
-The build script does not use Gradle.
+The build script does not use Gradle or AndroidX.
 
 ---
 
@@ -154,10 +157,13 @@ Environment checks
 Clean previous build artifacts
         |
         v
-Validate Ventoy source
+Validate pinned Ventoy source and Secure Boot assets
         |
         v
 Rebuild deterministic Ventoy VTOYEFI image
+        |
+        v
+Verify Ventoy boot/core assets
         |
         v
 Build native libraries for 4 ABIs
@@ -169,22 +175,22 @@ Build dnsmasq for 4 ABIs
 Compile Android resources
         |
         v
-Link Android assets/resources
+Link Android resources and assets
         |
         v
 Compile Java
         |
         v
-R8 shrink / optimize / obfuscate
+D8 -> classes.dex
         |
         v
 Insert DEX + native libraries
         |
         v
-Validate APK contents
+Validate APK contents and packaged Ventoy image
         |
         v
-zipalign
+zipalign + alignment verification
         |
         v
 app-release-unsigned.apk
@@ -199,8 +205,8 @@ chmod +x build.sh
 ./build.sh
 ```
 
-The build fails immediately when a required SDK, NDK, R8, Ventoy source or
-host tool is missing.
+The build fails when a required SDK, NDK, D8, Ventoy source or host tool is
+missing, or when a pinned asset fails its integrity check.
 
 ### Android SDK setup
 
@@ -225,8 +231,8 @@ $HOME/Android/Sdk
 It then expects:
 
 ```text
-platforms/android-34/android.jar
-build-tools/34.0.0/
+platforms/android-36/android.jar
+build-tools/36.0.0/
 ndk/30.0.16248370/
 ```
 
@@ -248,7 +254,7 @@ The build script requires:
 VENTOY_SRC
 ```
 
-to point to a Ventoy source or release tree containing:
+to point to a pinned Ventoy source or release tree containing:
 
 ```text
 VENTOY_SRC/
@@ -260,6 +266,9 @@ VENTOY_SRC/
 
 `INSTALL/grub/grub.cfg` must also be present.
 
+The build is intended to verify that the supplied Ventoy tree corresponds to
+the pinned Ventoy release commit before using it.
+
 The build does not silently fall back to a downloaded Ventoy binary.
 
 Example:
@@ -269,7 +278,7 @@ export VENTOY_SRC="/path/to/ventoy-1.1.17"
 ./build.sh
 ```
 
-The F-Droid metadata is intended to provide the pinned Ventoy source tree
+The F-Droid metadata is intended to provide the pinned Ventoy source dependency
 rather than downloading executable Ventoy components during application
 runtime.
 
@@ -293,11 +302,18 @@ Version: 1.1.17
 Tag: v1.1.17
 ```
 
+The build also pins the exact Ventoy source commit associated with this
+release. The commit is verified during the build rather than relying only on
+the version string.
+
 The original upstream VTOYEFI image is retained as the reference asset in:
 
 ```text
 src/main/assets/ventoy.disk.img
 ```
+
+Before reconstruction, the checked-in image is verified against its documented
+upstream SHA-256 value.
 
 The build then reconstructs a 32 MiB FAT16 VTOYEFI image from the pinned
 Ventoy source tree.
@@ -305,11 +321,13 @@ Ventoy source tree.
 This means:
 
 ```text
-official Ventoy release image
+official Ventoy release
         |
-        +----> provenance/reference
+        +----> pinned version / commit
         |
-        +----> Secure Boot EFI files can be extracted and verified
+        +----> original reference image
+        |
+        +----> Secure Boot EFI files
         |
         v
 pinned Ventoy source tree
@@ -318,12 +336,20 @@ pinned Ventoy source tree
         |
         v
 deterministic VTOYEFI rebuild
+        |
+        v
+verified rebuilt VTOYEFI image
+        |
+        v
+APK packaged asset
 ```
 
 The original upstream image hash and the rebuilt MultiBooter/F-Droid image hash
 are different provenance values and must not be treated as the same artifact.
 
-### Secure Boot binaries
+---
+
+## Secure Boot binaries
 
 The Secure Boot chain contains firmware-trusted EFI binaries.
 
@@ -333,10 +359,24 @@ must not be casually rebuilt or replaced.
 The provenance documentation records their expected SHA-256 values and their
 upstream origin.
 
-The current build process preserves the required Secure Boot EFI files while
-excluding selected non-Secure-Boot prebuilt payloads from the F-Droid image.
+The current build verifies the expected SHA-256 values of the required
+Secure Boot EFI files before they are used in the reconstructed image.
 
-### Excluded Ventoy prebuilt payloads
+The relevant files are:
+
+```text
+INSTALL/EFI/BOOT/BOOTX64.EFI
+INSTALL/EFI/BOOT/mmx64.efi
+INSTALL/EFI/BOOT/fbx64.efi
+INSTALL/EFI/BOOT/grubx64_real.efi
+```
+
+The MOK enrollment certificate used by the Ventoy image is also covered by the
+project's documented provenance data.
+
+---
+
+## Excluded Ventoy prebuilt payloads
 
 The F-Droid-oriented Ventoy image rebuild removes:
 
@@ -361,14 +401,13 @@ These exclusions are part of the current packaging model.
 The Ventoy VTOYEFI image is regenerated during the build instead of relying
 only on the checked-in binary image.
 
-The current script uses:
+The reproducible build uses:
 
 ```text
 SOURCE_DATE_EPOCH=1735689600
 TZ=UTC
+LC_ALL=C
 ```
-
-unless `VENTOY_IMAGE_EPOCH` is explicitly supplied.
 
 The image is created as:
 
@@ -390,8 +429,14 @@ src/main/assets/ventoy.disk.img
 
 during the build.
 
-The build prints the resulting SHA-256 of the generated image so it can be
-compared with the documented provenance for the exact build environment.
+The resulting SHA-256 is compared against the pinned expected rebuilt-image
+hash. A mismatch is fatal and stops the build.
+
+The APK-packaged copy of the image is also verified against the same rebuilt
+image hash after APK assembly.
+
+The original upstream image hash is used only to verify the reference input
+before it is replaced by the deterministic reconstruction.
 
 ---
 
@@ -438,30 +483,56 @@ assets/dnsmasq-x86_64
 
 ---
 
-## R8
+## Java and DEX generation
 
-The Java build uses R8 for:
+The Java sources are compiled with the JDK using the Android platform
+`android.jar` as the compile-time API.
 
-- shrinking;
-- optimization;
-- obfuscation.
+The current build does not use R8 for Java shrinking, optimization or
+obfuscation.
 
-The build expects:
+Java bytecode is packaged into a temporary JAR and converted to DEX with
+**D8**.
 
-```text
-$ANDROID_HOME/r8/r8.jar
-```
-
-by default.
-
-It can also use compatible R8/D8 tooling found under the Android Build Tools
-directory when the primary R8 path is unavailable.
-
-The R8 configuration is stored in:
+The build supports:
 
 ```text
-proguard-rules.pro
+$BUILD_TOOLS/lib/d8.jar
 ```
+
+or:
+
+```text
+$BUILD_TOOLS/d8
+```
+
+An explicit D8 JAR can also be supplied through:
+
+```text
+D8_JAR
+```
+
+The DEX build uses:
+
+```text
+--min-api 26
+```
+
+and the Android platform:
+
+```text
+platforms/android-36/android.jar
+```
+
+The resulting:
+
+```text
+classes.dex
+```
+
+is inserted into the APK together with the native libraries.
+
+No `proguard-rules.pro` file is required by the current build pipeline.
 
 ---
 
@@ -472,10 +543,10 @@ The build intentionally uses the Android SDK build tools directly.
 Resources are compiled with:
 
 ```text
-aapt2
+aapt2 compile
 ```
 
-and linked together with:
+and linked with:
 
 ```text
 aapt2 link
@@ -487,22 +558,18 @@ The Android assets directory is:
 src/main/assets/
 ```
 
-The resulting Java bytecode is converted to DEX by R8.
+Java bytecode is converted to DEX by D8.
 
 The final DEX and native libraries are inserted into the generated APK and the
 APK is then checked for the required entries.
 
+The APK is finally processed with `zipalign`.
+
 ---
 
-## Build output
+## APK integrity checks
 
-A successful build produces:
-
-```text
-app-release-unsigned.apk
-```
-
-The script verifies that the APK contains:
+The build verifies that the APK contains:
 
 ```text
 classes.dex
@@ -522,6 +589,9 @@ assets/ventoy.disk.img.sha256
 
 file is not accidentally packaged into the APK.
 
+The packaged `assets/ventoy.disk.img` is extracted and its SHA-256 is checked
+against the deterministic rebuilt-image hash.
+
 The final APK is processed with:
 
 ```text
@@ -532,23 +602,87 @@ and the alignment is verified before the build is reported as successful.
 
 ---
 
+## Build output
+
+A successful build produces:
+
+```text
+app-release-unsigned.apk
+```
+
+The script prints:
+
+- the final APK size;
+- the final APK SHA-256;
+- the rebuilt Ventoy VTOYEFI SHA-256;
+- the pinned Ventoy source information;
+- the deterministic image timestamp.
+
+The final APK SHA-256 is a build result and should not be confused with the
+pinned provenance hashes of the Ventoy assets.
+
+---
+
 ## Build environment variables
 
-The following variables can be used to control the current build:
+The following variables are used by the current build:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `ANDROID_API` | `34` | Android API level |
+| `ANDROID_API` | `36` | Android API level |
 | `NDK_VERSION` | `30.0.16248370` | Android NDK version |
-| `BUILD_TOOLS_VERSION` | `34.0.0` | Android Build Tools version |
+| `BUILD_TOOLS_VERSION` | `36.0.0` | Android Build Tools version |
 | `ANDROID_HOME` | `$HOME/Android/Sdk` fallback | Android SDK root |
 | `ANDROID_SDK_ROOT` | unset | Alternative Android SDK root |
-| `R8_JAR` | `$ANDROID_HOME/r8/r8.jar` | R8 JAR path |
-| `VENTOY_SRC` | unset | Ventoy source/release tree |
+| `D8_JAR` | unset | Optional explicit D8 JAR path |
+| `VENTOY_SRC` | unset | Pinned Ventoy source/release tree |
 | `VENTOY_WORK_DIR` | temporary directory | Ventoy image work directory |
-| `VENTOY_IMAGE_EPOCH` | `1735689600` | Reproducible Ventoy image timestamp |
+
+The deterministic Ventoy image timestamp is intentionally fixed by the build
+for provenance purposes and is not treated as a release-build override.
 
 `VENTOY_SRC` is mandatory.
+
+---
+
+## F-Droid build and provenance
+
+MultiBooter is designed to be compatible with source-based F-Droid builds.
+
+The F-Droid build model uses a pinned Ventoy source dependency and runs the
+project build script in a clean Linux environment.
+
+The F-Droid metadata records the exact MultiBooter source revision to build
+and the pinned Ventoy source dependency.
+
+The build verifies the Ventoy source revision and critical binary assets before
+constructing the application.
+
+The repository's:
+
+```text
+ASSET_PROVENANCE.md
+```
+
+documents the upstream versions, commits and hashes used by the build.
+
+The application itself is designed not to download additional executable
+Ventoy components after installation.
+
+---
+
+## Runtime network behavior
+
+The application does not require downloading Ventoy executable components at
+runtime.
+
+Ventoy boot assets required by the installer are supplied as application
+assets and/or generated during the build from the pinned Ventoy source.
+
+Network functionality exists separately for the TFTP feature.
+
+Runtime TFTP behavior therefore should not be confused with downloading
+Ventoy boot components.
 
 ---
 
@@ -647,7 +781,6 @@ MultiBooter/
 ├── ASSET_PROVENANCE.md        Binary/boot asset provenance
 ├── AndroidManifest.xml
 ├── build.sh                   Linux/F-Droid build script
-├── proguard-rules.pro         R8 configuration
 └── LICENSE
 ```
 
@@ -671,23 +804,11 @@ metadata/com.werismoln.multibooter.yml
 
 for F-Droid packaging metadata.
 
-The F-Droid build should be evaluated from the exact commit recorded in that
-metadata file.
+The F-Droid build should be evaluated from the exact MultiBooter source
+revision recorded in that metadata file.
 
----
-
-## Runtime network behavior
-
-The application does not require downloading Ventoy executable components at
-runtime.
-
-Ventoy boot assets required by the installer are supplied as application
-assets and/or generated during the build from the pinned Ventoy source.
-
-Network functionality exists separately for the TFTP feature.
-
-Runtime TFTP behavior therefore should not be confused with downloading
-Ventoy boot components.
+The F-Droid metadata and the corresponding release tag should reference the
+same release commit.
 
 ---
 
@@ -744,8 +865,8 @@ ASSET_PROVENANCE.md
 ```
 
 That document records upstream versions, source locations, hashes,
-Secure Boot components and the distinction between official upstream images
-and MultiBooter-reconstructed images.
+Secure Boot components, source commits and the distinction between official
+upstream images and MultiBooter-reconstructed images.
 
 ---
 
@@ -753,14 +874,14 @@ and MultiBooter-reconstructed images.
 
 The repository intentionally avoids Gradle and AndroidX.
 
-The build is based on:
+The current build is based on:
 
 ```text
 Android SDK
 Android Build Tools
 Android NDK
 JDK
-R8
+D8
 AAPT2 / AAPT
 zipalign
 ```
@@ -802,4 +923,3 @@ kernel-level USB/network state on the Android device.
 
 Use the software only when you understand the consequences of the selected
 operation and always keep backups of important data.
-

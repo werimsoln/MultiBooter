@@ -9,7 +9,7 @@ components independently auditable and to clearly distinguish:
 1. official upstream Ventoy release assets;
 2. firmware-trusted Secure Boot binaries preserved from the upstream release;
 3. the deterministic VTOYEFI image reconstructed by the MultiBooter build;
-4. the files actually shipped inside the application package.
+4. the files shipped inside the application package.
 
 MultiBooter does not claim ownership of Ventoy or any third-party components
 contained in Ventoy assets.
@@ -36,6 +36,8 @@ Ventoy 1.1.17's upstream `BLOB_List.md` identifies the origins of the
 relevant EFI components, including Rocky Linux 9.8 Secure Boot binaries and
 Ventoy-built EFI components.
 
+The F-Droid metadata pins the Ventoy source library to the exact commit above.
+
 ---
 
 ## 2. Official Ventoy release archive
@@ -50,13 +52,15 @@ https://github.com/ventoy/Ventoy/releases/download/v1.1.17/ventoy-1.1.17-linux.t
 7fb4ed08cef6a6b4d39dd19260d8c80291a78dfdf9af7d461571e23cbbc43805
 ```
 
-The archive above is the upstream baseline for the Ventoy 1.1.17 assets
-documented in this file.
+The archive above is an independent upstream provenance reference for the
+Ventoy 1.1.17 assets documented in this file.
 
-The archive should be verified before extracting or packaging any Ventoy
-asset.
+The current F-Droid build does not use this release archive directly.
+Instead, the F-Droid build obtains Ventoy through its pinned source library.
+The archive SHA-256 is retained as an independently verifiable upstream
+reference and must be updated when the documented Ventoy release changes.
 
-Example:
+Example verification:
 
 ```bash
 sha256sum ventoy-1.1.17-linux.tar.gz
@@ -114,6 +118,8 @@ During installation, MultiBooter uses only the required boot-sector data
 needed to construct the target MBR. The partition table and disk-specific
 values are generated separately by MultiBooter.
 
+The current `build.sh` verifies this bundled asset before packaging.
+
 ---
 
 ## 3.2 core.img
@@ -161,6 +167,8 @@ No modification is performed after decompression.
 The decompressed image is written to the Ventoy BIOS boot region as required
 by the MultiBooter MBR installation procedure.
 
+The current `build.sh` verifies this bundled asset before packaging.
+
 ---
 
 # 4. Official Ventoy VTOYEFI image
@@ -193,7 +201,7 @@ ventoy-1.1.17/ventoy/ventoy.disk.img.xz
 
 The image is losslessly decompressed from the official Ventoy release:
 
-```text
+```bash
 xz -dc \
     ventoy-1.1.17/ventoy/ventoy.disk.img.xz \
     > ventoy.disk.img
@@ -207,6 +215,9 @@ xz -dc \
 
 This hash identifies the original official Ventoy 1.1.17 VTOYEFI image
 before any MultiBooter/F-Droid reconstruction.
+
+The current `build.sh` verifies this exact SHA-256 before removing and
+recreating the checked-in `ventoy.disk.img`.
 
 **Important:**
 
@@ -226,12 +237,13 @@ The F-Droid build does not simply redistribute the complete upstream
 Instead, the build process:
 
 1. obtains the pinned Ventoy 1.1.17 source tree;
-2. verifies the checked-in upstream reference image;
+2. verifies the checked-in upstream reference image before replacing it;
 3. extracts and verifies the firmware-trusted Secure Boot EFI binaries;
 4. inserts those verified binaries into the pinned Ventoy source tree;
 5. removes non-Secure-Boot prebuilt payloads excluded from the F-Droid build;
 6. reconstructs a deterministic 32 MiB FAT16 VTOYEFI image;
-7. places the reconstructed image in the APK.
+7. verifies the rebuilt image SHA-256;
+8. packages the rebuilt image into the APK.
 
 The reconstructed image therefore has a different SHA-256 from the original
 official upstream image.
@@ -247,11 +259,23 @@ VENTOY_SRC/INSTALL/ventoy
 VENTOY_SRC/INSTALL/tool/ENROLL_THIS_KEY_IN_MOKMANAGER.cer
 ```
 
-The build uses deterministic metadata settings including:
+The F-Droid metadata currently pins the Ventoy source as:
+
+```text
+Ventoy@7cbdc5cf69935bcf1f085ae67f40e70ea7e74bae
+```
+
+The build uses deterministic metadata settings:
 
 ```text
 SOURCE_DATE_EPOCH = 1735689600
 TZ = UTC
+```
+
+The F-Droid metadata passes the timestamp explicitly to `build.sh` as:
+
+```text
+VENTOY_IMAGE_EPOCH=1735689600
 ```
 
 The FAT image is created as:
@@ -265,6 +289,8 @@ FAT ID: 56544f59
 
 The build also normalizes relevant file timestamps and uses deterministic
 ordering for archive and directory operations.
+
+---
 
 ## 5.2 Excluded non-Secure-Boot payloads
 
@@ -287,20 +313,29 @@ are excluded from the reconstructed VTOYEFI image.
 These exclusions are part of the MultiBooter F-Droid packaging policy and are
 not applied to the documented original upstream SHA-256 baseline.
 
+---
+
 ## 5.3 Rebuilt image SHA-256
 
-The SHA-256 below must be generated from a clean F-Droid-compatible build of
-the exact source revision referenced by the F-Droid metadata.
+The build currently records the following SHA-256 as the expected output for
+the deterministic VTOYEFI reconstruction:
 
 ```text
 830d225ec39c06dcd57fd38f38ae784a1123588b2f27cde9e9a49e86d6fc2113
 ```
 
-This value must not be invented or copied from another project.
+This value is hard-coded in `build.sh` as:
 
-After the first clean reproducible F-Droid build, the actual hash must replace
-the placeholder above and be recorded in the same commit as the corresponding
-build metadata.
+```text
+VENTOY_EXPECTED_REBUILT_SHA256
+```
+
+A mismatch is fatal and stops the build.
+
+The value represents the expected output for the exact documented build
+inputs and deterministic settings. It must be recomputed and reviewed
+whenever the Ventoy source, bundled EFI assets, image-generation procedure,
+or deterministic build inputs are intentionally changed.
 
 ---
 
@@ -315,6 +350,10 @@ source.
 This is necessary because rebuilding signed PE/EFI binaries can change their
 binary representation and invalidate their existing firmware-trusted
 signatures.
+
+The current F-Droid build removes these four files from the Ventoy source tree
+during `prebuild`, extracts them from the checked-in reference image, verifies
+their SHA-256 values, and restores them into the pinned Ventoy source tree.
 
 ## 6.1 BOOTX64.EFI
 
@@ -344,6 +383,9 @@ Rocky Linux 9.8 x86_64 Secure Boot component, as documented by Ventoy
 Preserve the exact binary.
 
 Do not rebuild this file for packaging.
+
+The current F-Droid `prebuild` step and `build.sh` both verify its exact
+SHA-256.
 
 ---
 
@@ -375,6 +417,9 @@ Rocky Linux 9.8 x86_64 Secure Boot component, as documented by Ventoy
 Preserve the exact binary.
 
 Do not rebuild this file for packaging.
+
+The current F-Droid `prebuild` step and `build.sh` both verify its exact
+SHA-256.
 
 ---
 
@@ -408,6 +453,9 @@ Do not replace it with an independently rebuilt binary unless the upstream
 Ventoy release and its resulting signature/provenance are intentionally
 updated.
 
+The current F-Droid `prebuild` step and `build.sh` both verify its exact
+SHA-256.
+
 ---
 
 ## 6.4 grubx64_real.efi
@@ -437,6 +485,9 @@ Ventoy build output for the pinned Ventoy 1.1.17 release.
 Use the exact verified binary associated with the documented Ventoy 1.1.17
 asset baseline.
 
+The current F-Droid `prebuild` step and `build.sh` both verify its exact
+SHA-256.
+
 ---
 
 # 7. Secure Boot certificate
@@ -464,16 +515,21 @@ workflow.
 INSTALL/tool/ENROLL_THIS_KEY_IN_MOKMANAGER.cer
 ```
 
-This certificate is copied from the pinned Ventoy source/release tree when it
-is present.
+The current build copies this certificate from the pinned Ventoy source tree
+when it is present.
 
-The exact certificate hash should be recorded whenever the asset is updated.
-
-For the current Ventoy 1.1.17 asset baseline, the expected SHA-256 is:
+The exact certificate hash is recorded here for provenance:
 
 ```text
 8072e285ed57ffd63421beb52d5c27cb5ad70a8d7377b67b358f816f97012e27
 ```
+
+The current `build.sh` does not perform a SHA-256 check on this certificate.
+Therefore this value is presently a documented provenance value, not an
+enforced build-time integrity check.
+
+If certificate verification is added in the future, the build should fail on
+a mismatch.
 
 ---
 
@@ -496,6 +552,8 @@ b6581090947e7cacbd3cee23dfe2216aee9ab368c6508c2c5f3490621e969b84  src/main/asset
 871f313d60d865a8ee307bc97c961e6cb619143288b4faf811efe9844ca1a003  src/main/assets/ventoy.disk.img
 ```
 
+The current `build.sh` verifies all three values before packaging.
+
 The official Ventoy archive itself should independently verify to:
 
 ```text
@@ -506,11 +564,15 @@ The official Ventoy archive itself should independently verify to:
 
 # 9. Verification of Secure Boot binaries
 
-The four x86_64 Secure Boot binaries must be extracted from the checked-in
-reference image and verified before they are injected into the pinned Ventoy
+The four x86_64 Secure Boot binaries are extracted from the checked-in
+reference image during the F-Droid `prebuild` step.
+
+The metadata then verifies their SHA-256 values before the build continues.
+
+The `build.sh` also verifies the corresponding files in the supplied Ventoy
 source tree.
 
-Example:
+Example extraction:
 
 ```bash
 mcopy -i src/main/assets/ventoy.disk.img \
@@ -549,21 +611,30 @@ c8fc4661f4b64b916e37e4fdd68042d3d64290a696add9199afb84c12ad896c8  /tmp/fbx64.efi
 907c99a8370e953eb4ec34df2c314cf979356bfca97733ccb1139ee3f5e98cce  /tmp/grubx64_real.efi
 ```
 
-Any mismatch must fail the build.
+Any mismatch in the current F-Droid prebuild or `build.sh` verification must
+fail the build.
 
 ---
 
 # 10. F-Droid source rebuild model
 
-The F-Droid build uses a pinned Ventoy source library:
+The current F-Droid build metadata pins the Ventoy source to the exact
+Ventoy 1.1.17 tag commit:
 
 ```text
-Ventoy@v1.1.17
+Ventoy@7cbdc5cf69935bcf1f085ae67f40e70ea7e74bae
 ```
 
-The build process must not download executable components at runtime.
+The corresponding MultiBooter F-Droid build source revision is:
 
-The intended flow is:
+```text
+76a4ae198102433b663a81f1b7596bb73347be41
+```
+
+The build process does not download Ventoy executable or boot components at
+runtime.
+
+The intended build flow is:
 
 ```text
 Pinned Ventoy 1.1.17 source
@@ -593,10 +664,15 @@ Verify rebuilt image SHA-256
 Package image into MultiBooter APK
 ```
 
-The build must fail if:
+The F-Droid metadata is responsible for pinning the Ventoy source to the
+documented Git commit. The current `build.sh` verifies the expected Ventoy
+directory structure and the hashes of the critical assets, but it does not
+perform a separate `git rev-parse HEAD` check.
 
-- the Ventoy source version is not the pinned version;
-- the official reference image hash does not match;
+The current build must fail if:
+
+- the required Ventoy source directories are missing;
+- the checked-in reference image hash does not match;
 - any required Secure Boot binary is missing;
 - any Secure Boot binary has an unexpected SHA-256;
 - the rebuilt VTOYEFI image does not match its documented expected SHA-256.
@@ -639,10 +715,10 @@ application installation.
 
 # 12. Runtime integrity verification
 
-Before any destructive Ventoy USB write operation begins, MultiBooter should
-verify the exact SHA-256 of every bundled asset used by the installer.
+The intended policy is to verify the exact SHA-256 of every bundled asset used
+by the installer before any destructive Ventoy USB write operation begins.
 
-The verification policy is:
+The policy covers:
 
 ```text
 boot.img
@@ -652,20 +728,32 @@ core.img
     -> exact expected SHA-256
 
 ventoy.disk.img
-    -> exact expected SHA-256 of the shipped/reconstructed image
+    -> exact expected SHA-256 for the image being shipped
 ```
 
 File-size checks alone are not sufficient to establish asset integrity.
 
-Asset verification must complete before the first destructive USB write.
+**Current implementation status:**
 
-A verification failure must abort the installation.
+The repository currently contains build-time SHA-256 verification for the
+relevant Ventoy assets in `build.sh`.
+
+No Android runtime `MessageDigest`/SHA-256 verification for these bundled
+assets was found in the current source used for this provenance review.
+
+Therefore the runtime verification described in this section is currently a
+policy requirement, not an implemented runtime check.
+
+When runtime verification is implemented, it must complete before the first
+destructive USB write.
+
+A runtime verification failure must abort the installation.
 
 ---
 
 # 13. Reproducibility and expected-output recording
 
-The repository records two different VTOYEFI image identities:
+The repository records two different VTOYEFI image identities.
 
 ### Official upstream reference
 
@@ -681,17 +769,27 @@ The repository records two different VTOYEFI image identities:
 
 These hashes must not be conflated.
 
+The rebuilt-image hash is an expected build result for the documented
+reproducible input set. It is enforced by `build.sh` through
+`VENTOY_EXPECTED_REBUILT_SHA256`.
+
 After any intentional Ventoy asset update:
 
-1. update the pinned Ventoy version and tag;
+1. update the pinned Ventoy version and tag commit;
 2. verify the upstream release archive hash;
 3. update the official asset hashes;
 4. update Secure Boot binary hashes when upstream changes them;
 5. rebuild the deterministic VTOYEFI image;
-6. record the resulting rebuilt-image SHA-256;
+6. verify the resulting rebuilt-image SHA-256;
 7. update this document;
 8. update the F-Droid metadata;
-9. verify the final build from a clean environment.
+9. update the corresponding MultiBooter source revision;
+10. verify the final build from a clean environment.
+
+No rebuilt-image hash should be changed merely to make a build pass.
+
+A changed hash must correspond to a documented upstream, source, packaging or
+deterministic-build change.
 
 ---
 
@@ -729,7 +827,8 @@ upstream licensing and redistribution conditions remain in force.
 Ventoy assets are updated only when an intentional upstream version change is
 made.
 
-An update must use the exact upstream Ventoy release tag and archive.
+An update must use the exact upstream Ventoy release tag and corresponding
+source commit.
 
 The following must be reviewed together:
 
@@ -744,8 +843,12 @@ Secure Boot EFI hashes
 MOK certificate hash
 reconstructed VTOYEFI SHA-256
 F-Droid metadata
+MultiBooter source revision
 runtime asset hashes
 ```
+
+The Ventoy source pin used by F-Droid must correspond to the documented
+Ventoy tag commit.
 
 No asset hash may be changed merely to make a build pass.
 
@@ -754,6 +857,13 @@ A hash change must correspond to a documented upstream or packaging change.
 ---
 
 # 16. Audit summary
+
+For the current F-Droid release build, the MultiBooter source revision
+specified by the metadata is:
+
+```text
+76a4ae198102433b663a81f1b7596bb73347be41
+```
 
 The provenance chain for the current Ventoy integration is:
 
@@ -785,13 +895,18 @@ Ventoy v1.1.17
     |      fbx64.efi
     |      grubx64_real.efi
     |
+    +-- MultiBooter F-Droid build source
+    |   commit:
+    |   76a4ae198102433b663a81f1b7596bb73347be41
+    |
     +-- pinned Ventoy source rebuild
            |
            +-- non-Secure-Boot blobs removed
            |
            +-- deterministic FAT16 image generated
            |
-           +-- rebuilt SHA-256 recorded separately
+           +-- rebuilt SHA-256 verified:
+               830d225ec39c06dcd57fd38f38ae784a1123588b2f27cde9e9a49e86d6fc2113
 ```
 
 The official upstream image is the provenance baseline.
@@ -800,3 +915,7 @@ The reconstructed image is the F-Droid packaging artifact.
 
 The two artifacts have distinct identities and must remain separately
 documented.
+
+The current documentation distinguishes between build-time integrity checks
+that are implemented and runtime integrity checks that remain a future
+policy requirement.

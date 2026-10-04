@@ -5,8 +5,15 @@ set -euo pipefail
 PROJECT_ROOT="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_ROOT"
 
-# Pinned integrity data for assets that must remain byte-for-byte stable.
+# Keep locale/order deterministic for reproducible archive generation.
+export LC_ALL=C
+export TZ=UTC
+
+# Pinned integrity/provenance data for assets that must remain byte-for-byte stable.
 # These values are also documented in ASSET_PROVENANCE.md.
+VENTOY_VERSION="1.1.17"
+VENTOY_COMMIT="7cbdc5cf69935bcf1f085ae67f40e70ea7e74bae"
+
 VENTOY_DISK_IMG_SHA256="871f313d60d865a8ee307bc97c961e6cb619143288b4faf811efe9844ca1a003"
 BOOT_IMG_SHA256="f37cbea83596aef9812f4d984d344b5103913505dfee40dc0025742ea54a6113"
 CORE_IMG_SHA256="b6581090947e7cacbd3cee23dfe2216aee9ab368c6508c2c5f3490621e969b84"
@@ -14,11 +21,16 @@ EFI_BOOTX64_SHA256="1ff3f223c2fcf5b11615d042fcb5674c4651bbbc8505b5b2987d60da0cb6
 EFI_MMX64_SHA256="1a3687f923d077080fe49feb470e3932c2b1d3fd4c6439123aa0226246a24522"
 EFI_FBX64_SHA256="c8fc4661f4b64b916e37e4fdd68042d3d64290a696add9199afb84c12ad896c8"
 EFI_GRUBX64_REAL_SHA256="907c99a8370e953eb4ec34df2c314cf979356bfca97733ccb1139ee3f5e98cce"
+MOK_CERT_SHA256="8072e285ed57ffd63421beb52d5c27cb5ad70a8d7377b67b358f816f97012e27"
 
-VENTOY_VERSION="${VENTOY_VERSION:-1.1.17}"
 # SHA-256 of the deterministic F-Droid-rebuilt Ventoy VTOYEFI image.
-# A mismatch is fatal and must stop the build.
+# This value is mandatory; a mismatch must stop the build.
 VENTOY_EXPECTED_REBUILT_SHA256="830d225ec39c06dcd57fd38f38ae784a1123588b2f27cde9e9a49e86d6fc2113"
+
+# Immutable timestamp used by the reproducible VTOYEFI image build.
+# Do not override this for the release/F-Droid build, because the expected image hash
+# above is tied to this exact value.
+SOURCE_DATE_EPOCH="1735689600"
 
 echo "=========================================="
 echo "      MultiBooter F-Droid BUILD"
@@ -55,8 +67,6 @@ D8_JAR="${D8_JAR:-}"
 VENTOY_SRC="${VENTOY_SRC:-}"
 VENTOY_IMAGE="src/main/assets/ventoy.disk.img"
 VENTOY_WORK_DIR="${VENTOY_WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/multibooter-ventoy.XXXXXX")}"
-
-SOURCE_DATE_EPOCH="${VENTOY_IMAGE_EPOCH:-1735689600}"
 
 cleanup() {
     rm -rf "$VENTOY_WORK_DIR"
@@ -104,6 +114,22 @@ validate_sha256_value() {
         fail "$label gecersiz. 64 karakterlik SHA-256 bekleniyor."
 }
 
+validate_sha256_value "$VENTOY_DISK_IMG_SHA256" "VENTOY_DISK_IMG_SHA256"
+validate_sha256_value "$BOOT_IMG_SHA256" "BOOT_IMG_SHA256"
+validate_sha256_value "$CORE_IMG_SHA256" "CORE_IMG_SHA256"
+validate_sha256_value "$EFI_BOOTX64_SHA256" "EFI_BOOTX64_SHA256"
+validate_sha256_value "$EFI_MMX64_SHA256" "EFI_MMX64_SHA256"
+validate_sha256_value "$EFI_FBX64_SHA256" "EFI_FBX64_SHA256"
+validate_sha256_value "$EFI_GRUBX64_REAL_SHA256" "EFI_GRUBX64_REAL_SHA256"
+validate_sha256_value "$MOK_CERT_SHA256" "MOK_CERT_SHA256"
+validate_sha256_value "$VENTOY_EXPECTED_REBUILT_SHA256" "VENTOY_EXPECTED_REBUILT_SHA256"
+
+[[ "$VENTOY_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]] ||
+    fail "VENTOY_COMMIT gecersiz. 40 karakterlik Git commit bekleniyor."
+
+[[ "$SOURCE_DATE_EPOCH" =~ ^[0-9]+$ ]] ||
+    fail "SOURCE_DATE_EPOCH gecersiz. Unix epoch olarak sayisal bir deger bekleniyor."
+
 echo "[0/15] Ortam kontrol ediliyor..."
 
 [[ "$(uname -s)" == "Linux" ]] ||
@@ -140,6 +166,8 @@ echo "[0/15] Ortam kontrol ediliyor..."
 require_cmd javac
 require_cmd jar
 require_cmd java
+require_cmd git
+require_cmd unzip
 require_cmd stat
 require_cmd sha256sum
 
@@ -169,6 +197,8 @@ echo "[OK] Project root: $PROJECT_ROOT"
 echo "[OK] Android API: $ANDROID_API"
 echo "[OK] Build Tools: $BUILD_TOOLS_VERSION"
 echo "[OK] NDK: $NDK_VERSION"
+echo "[OK] Ventoy: $VENTOY_VERSION ($VENTOY_COMMIT)"
+echo "[OK] SOURCE_DATE_EPOCH: $SOURCE_DATE_EPOCH"
 
 if [[ -n "$D8_BIN" ]]; then
     echo "[OK] D8: $D8_BIN"
@@ -182,6 +212,7 @@ echo "[1/15] Eski build temizleniyor..."
 
 rm -rf gen obj dex-out lib
 rm -f compiled_res.zip sources.txt classes.dex
+rm -f classes-input.jar
 rm -f app-unaligned.apk app-aligned.apk app-release.apk app-release-unsigned.apk
 
 mkdir -p gen obj dex-out
@@ -191,6 +222,9 @@ mkdir -p src/main/assets
 rm -f src/main/assets/ffs_gadget
 rm -f src/main/assets/dnsmasq
 rm -f src/main/assets/ventoy.disk.img.sha256
+
+# Never delete the checked-in ventoy.disk.img before its upstream reference hash
+# has been verified below in step [4/15].
 
 echo "[OK] Temizlik tamam."
 echo
@@ -207,6 +241,24 @@ fi
     echo "[ERROR] Ventoy kaynak dizini bulunamadi: $VENTOY_SRC"
     exit 1
 }
+
+git -C "$VENTOY_SRC" rev-parse --git-dir >/dev/null 2>&1 || {
+    echo "[ERROR] Ventoy kaynak dizini bir Git deposu degil: $VENTOY_SRC"
+    echo "[ERROR] Pinned Ventoy commit dogrulamasi yapilamayacagi icin build durduruldu."
+    exit 1
+}
+
+VENTOY_ACTUAL_COMMIT="$(git -C "$VENTOY_SRC" rev-parse HEAD 2>/dev/null)" ||
+    fail "Ventoy kaynak commit'i okunamadi: $VENTOY_SRC"
+
+if [[ "$VENTOY_ACTUAL_COMMIT" != "$VENTOY_COMMIT" ]]; then
+    echo "[ERROR] Ventoy kaynak commit'i beklenen surumle eslesmiyor." >&2
+    echo "[ERROR] Beklenen: $VENTOY_COMMIT" >&2
+    echo "[ERROR] Gercek:    $VENTOY_ACTUAL_COMMIT" >&2
+    exit 1
+fi
+
+echo "[OK] Ventoy commit dogrulandi: $VENTOY_ACTUAL_COMMIT"
 
 [[ -d "$VENTOY_SRC/INSTALL" ]] || {
     echo "[ERROR] Ventoy INSTALL klasoru bulunamadi: $VENTOY_SRC/INSTALL"
@@ -251,7 +303,13 @@ verify_sha256 \
     "$EFI_GRUBX64_REAL_SHA256" \
     "Ventoy grubx64_real.efi"
 
-echo "[OK] Ventoy kaynaklari bulundu ve kritik Secure Boot varliklari dogrulandi: $VENTOY_SRC"
+MOK_CERT="$VENTOY_SRC/INSTALL/tool/ENROLL_THIS_KEY_IN_MOKMANAGER.cer"
+verify_sha256 \
+    "$MOK_CERT" \
+    "$MOK_CERT_SHA256" \
+    "Ventoy MOK sertifikasi"
+
+echo "[OK] Ventoy kaynaklari ve tum pinli imzali/Secure Boot varliklari dogrulandi: $VENTOY_SRC"
 echo
 
 echo "[3/15] Ventoy disk image icin gerekli araclar kontrol ediliyor..."
@@ -265,6 +323,7 @@ echo
 
 echo "[4/15] Ventoy disk image yeniden olusturuluyor..."
 
+# SOURCE_DATE_EPOCH is deliberately fixed above for the release build.
 export SOURCE_DATE_EPOCH
 export TZ=UTC
 
@@ -357,11 +416,9 @@ find "$GRUB_DIR" \
 cp -a "$INSTALL_DIR/ventoy" "$VENTOY_WORK_DIR/root/"
 cp -a "$INSTALL_DIR/EFI" "$VENTOY_WORK_DIR/root/"
 
-if [[ -f "$INSTALL_DIR/tool/ENROLL_THIS_KEY_IN_MOKMANAGER.cer" ]]; then
-    cp -a \
-        "$INSTALL_DIR/tool/ENROLL_THIS_KEY_IN_MOKMANAGER.cer" \
-        "$VENTOY_WORK_DIR/root/"
-fi
+cp -a \
+    "$MOK_CERT" \
+    "$VENTOY_WORK_DIR/root/"
 
 # F-Droid icin non-Secure-Boot prebuilt bloblar dahil edilmez.
 rm -rf "$VENTOY_WORK_DIR/root/ventoy/7z"
@@ -378,6 +435,7 @@ find "$VENTOY_WORK_DIR/root" \
 
 mkdir -p "$(dirname "$VENTOY_IMAGE")"
 
+# Verify the checked-in upstream reference image before any destructive replacement.
 verify_sha256 \
     "$VENTOY_IMAGE" \
     "$VENTOY_DISK_IMG_SHA256" \
@@ -450,25 +508,13 @@ VENTOY_REBUILT_SHA256="$(
     awk '{print $1}'
 )"
 
+# The rebuilt image hash is mandatory. Any mismatch is fatal.
+verify_sha256 \
+    "$VENTOY_IMAGE" \
+    "$VENTOY_EXPECTED_REBUILT_SHA256" \
+    "reproducible Ventoy VTOYEFI image"
+
 echo "[INFO] Rebuilt Ventoy VTOYEFI SHA-256: $VENTOY_REBUILT_SHA256"
-
-if [[ -n "$VENTOY_EXPECTED_REBUILT_SHA256" ]]; then
-
-    if [[ "$VENTOY_REBUILT_SHA256" != "$VENTOY_EXPECTED_REBUILT_SHA256" ]]; then
-        echo "[ERROR] Rebuilt Ventoy VTOYEFI SHA-256 beklenen degerle eslesmiyor." >&2
-        echo "[ERROR] Beklenen: $VENTOY_EXPECTED_REBUILT_SHA256" >&2
-        echo "[ERROR] Gercek:    $VENTOY_REBUILT_SHA256" >&2
-        exit 1
-    fi
-
-    echo "[OK] Rebuilt Ventoy VTOYEFI SHA-256 beklenen degerle dogrulandi."
-
-else
-
-    echo "[WARN] VENTOY_EXPECTED_REBUILT_SHA256 ayarlanmadi; rebuilt image hash karsilastirmasi zorunlu degil."
-
-fi
-
 echo "[OK] Ventoy disk image yeniden olusturuldu."
 echo
 
@@ -755,8 +801,6 @@ echo
 rm -rf dex-out
 mkdir -p dex-out
 
-rm -f classes-input.jar
-
 jar cf classes-input.jar -C obj .
 
 if [[ -n "$D8_BIN" ]]; then
@@ -791,11 +835,12 @@ jar uf app-unaligned.apk \
 
 rm -f classes.dex
 rm -rf dex-out
+rm -f classes-input.jar
 
 echo "[OK] DEX ve native kutuphaneler eklendi."
 echo
 
-echo "[13/15] APK icerigi kontrol ediliyor..."
+echo "[13/15] APK icerigi ve provenance kontrol ediliyor..."
 
 "$AAPT" list app-unaligned.apk |
     grep -Fxq "classes.dex" || {
@@ -846,7 +891,20 @@ then
     exit 1
 fi
 
-echo "[OK] APK icerigi dogru."
+# Verify the exact VTOYEFI bytes that were actually packaged into the APK.
+APK_VENTOY_IMAGE="$VENTOY_WORK_DIR/apk-ventoy.disk.img"
+unzip -p app-unaligned.apk assets/ventoy.disk.img > "$APK_VENTOY_IMAGE" ||
+    fail "APK icindeki assets/ventoy.disk.img cikartilamadi."
+
+[[ "$(stat -c%s "$APK_VENTOY_IMAGE")" -eq 33554432 ]] ||
+    fail "APK icindeki ventoy.disk.img boyutu 33554432 byte olmali."
+
+verify_sha256 \
+    "$APK_VENTOY_IMAGE" \
+    "$VENTOY_EXPECTED_REBUILT_SHA256" \
+    "APK icindeki ventoy.disk.img"
+
+echo "[OK] APK icerigi ve provenance kontrolleri dogru."
 echo
 
 echo "[14/15] APK align ediliyor ve dogrulaniyor..."
@@ -863,12 +921,15 @@ echo "[14/15] APK align ediliyor ve dogrulaniyor..."
     app-release-unsigned.apk
 
 echo
+
 echo "=========================================="
 echo "      F-DROID BUILD BASARILI"
 echo "=========================================="
 echo "APK: $(pwd)/app-release-unsigned.apk"
 echo "APK boyutu: $(stat -c%s app-release-unsigned.apk) bytes"
 echo "APK SHA-256: $(sha256sum app-release-unsigned.apk | awk '{print $1}')"
+echo "Ventoy version: $VENTOY_VERSION"
+echo "Ventoy commit: $VENTOY_ACTUAL_COMMIT"
 echo "Ventoy image: $PROJECT_ROOT/$VENTOY_IMAGE"
 echo "Ventoy rebuilt image SHA-256: $VENTOY_REBUILT_SHA256"
 echo "Ventoy source: $VENTOY_SRC"
