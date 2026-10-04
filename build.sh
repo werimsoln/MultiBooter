@@ -40,7 +40,6 @@ AAPT="$BUILD_TOOLS/aapt"
 ZIPALIGN="$BUILD_TOOLS/zipalign"
 
 D8_JAR="${D8_JAR:-}"
-PROGUARD="$PROJECT_ROOT/proguard-rules.pro"
 
 VENTOY_SRC="${VENTOY_SRC:-}"
 VENTOY_IMAGE="src/main/assets/ventoy.disk.img"
@@ -126,11 +125,6 @@ echo "[0/15] Ortam kontrol ediliyor..."
     exit 1
 }
 
-[[ -f "$PROGUARD" ]] || {
-    echo "[ERROR] proguard-rules.pro bulunamadi."
-    exit 1
-}
-
 require_cmd javac
 require_cmd jar
 require_cmd java
@@ -172,11 +166,11 @@ echo
 
 echo "[1/15] Eski build temizleniyor..."
 
-rm -rf gen obj r8-out lib
+rm -rf gen obj dex-out lib
 rm -f compiled_res.zip sources.txt classes-input.jar classes.dex
 rm -f app-unaligned.apk app-aligned.apk app-release.apk app-release-unsigned.apk
 
-mkdir -p gen obj r8-out
+mkdir -p gen obj dex-out
 mkdir -p lib/arm64-v8a lib/armeabi-v7a lib/x86 lib/x86_64
 mkdir -p src/main/assets
 
@@ -681,16 +675,15 @@ jar cf classes-input.jar -C obj .
 echo "[OK] classes-input.jar hazir."
 echo
 
-echo "[12/15] D8 ile DEX uretiliyor (shrink/obfuscate yok)..."
+echo "[12/15] D8 ile DEX uretiliyor..."
 
-# Not: cikti dizini adi eski haliyle (r8-out) birakildi.
 if [[ -n "$D8_BIN" ]]; then
 
     "$D8_BIN" \
         --release \
         --min-api 26 \
         --lib "$PLATFORM" \
-        --output r8-out \
+        --output dex-out \
         classes-input.jar
 
 else
@@ -701,12 +694,12 @@ else
         --release \
         --min-api 26 \
         --lib "$PLATFORM" \
-        --output r8-out \
+        --output dex-out \
         classes-input.jar
 
 fi
 
-[[ -f r8-out/classes.dex ]] || {
+[[ -f dex-out/classes.dex ]] || {
     echo "[ERROR] classes.dex olusmadi."
     exit 1
 }
@@ -716,14 +709,14 @@ echo
 
 echo "[13/15] DEX ve native kutuphaneler APK'ya ekleniyor..."
 
-cp r8-out/classes.dex classes.dex
+cp dex-out/classes.dex classes.dex
 
 jar uf app-unaligned.apk \
     classes.dex \
     lib
 
 rm -f classes.dex classes-input.jar
-rm -rf r8-out
+rm -rf dex-out
 
 echo "[OK] DEX ve native kutuphaneler eklendi."
 echo
@@ -792,7 +785,6 @@ echo
 echo "=========================================="
 echo "      F-DROID BUILD BASARILI"
 echo "=========================================="
-echo
 echo "APK: $(pwd)/app-release-unsigned.apk"
 echo "APK boyutu: $(stat -c%s app-release-unsigned.apk) bytes"
 echo "APK SHA-256: $(sha256sum app-release-unsigned.apk | awk '{print $1}')"
