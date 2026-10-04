@@ -25,7 +25,6 @@ PROGUARD="$(pwd)/proguard-rules.pro"
 
 VENTOY_SRC="${VENTOY_SRC:-}"
 VENTOY_IMAGE="src/main/assets/ventoy.disk.img"
-VENTOY_SHA256="src/main/assets/ventoy.disk.img.sha256"
 VENTOY_WORK_DIR="${VENTOY_WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/multibooter-ventoy.XXXXXX")}"
 
 SOURCE_DATE_EPOCH="${VENTOY_IMAGE_EPOCH:-1735689600}"
@@ -113,6 +112,7 @@ mkdir -p src/main/assets
 
 rm -f src/main/assets/ffs_gadget
 rm -f src/main/assets/dnsmasq
+rm -f src/main/assets/ventoy.disk.img.sha256
 
 echo "[OK] Temizlik tamam."
 echo
@@ -331,7 +331,7 @@ copy_tree "$VENTOY_WORK_DIR/root" ::
 (
     cd "$(dirname "$VENTOY_IMAGE")"
     sha256sum "$(basename "$VENTOY_IMAGE")"
-) | tee "$VENTOY_SHA256"
+)
 
 echo "[OK] Ventoy disk image yeniden olusturuldu."
 echo
@@ -660,6 +660,11 @@ done
         exit 1
     }
 
+if "$AAPT" list app-unaligned.apk | grep -Fx "assets/ventoy.disk.img.sha256" >/dev/null; then
+    echo "[ERROR] assets/ventoy.disk.img.sha256 APK icinde olmamali."
+    exit 1
+fi
+
 echo "[OK] APK icerigi dogru."
 echo
 
@@ -684,5 +689,4 @@ echo
 echo "APK: $(pwd)/app-release-unsigned.apk"
 echo "APK boyutu: $(stat -c%s app-release-unsigned.apk) bytes"
 echo "Ventoy image: $(pwd)/$VENTOY_IMAGE"
-echo "Ventoy SHA256: $(cat "$VENTOY_SHA256")"
 echo
