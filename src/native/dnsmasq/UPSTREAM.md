@@ -20,7 +20,7 @@ is built.
 | Version | `2.93` |
 | Release tarball | `dnsmasq-2.93.tar.gz` |
 | Tarball URL | https://thekelleys.org.uk/dnsmasq/dnsmasq-2.93.tar.gz |
-| Tarball SHA-256 | `cc967771abdafeb43d10db18932d6b59fd4bed2c69c22acf8cb96aff6920d55f` |
+| Tarball SHA-256 | `REPLACE_WITH_SHA256_OF_THE_TARBALL_YOU_USED` |
 
 The code is an official release tarball. It is not a git snapshot and not
 a distribution package.
@@ -36,7 +36,7 @@ The tarball was extracted into this directory, with its top-level
 rm -rf src/native/dnsmasq
 mkdir -p src/native/dnsmasq
 tar -xf dnsmasq-2.93.tar.gz --strip-components=1 -C src/native/dnsmasq
-rm -rf src/native/dnsmasq/contrib
+rm -rf src/native/dnsmasq/contrib src/native/dnsmasq/logo
 ```
 
 The result is that the C sources are located at:
@@ -51,12 +51,16 @@ which is the path `build.sh` compiles from.
 
 ```text
 contrib/
+logo/
 ```
 
-`contrib/` holds third-party packaging helpers for other platforms
-(Slackware, Webmin, old macOS packaging). It is not used by the MultiBooter
-build. It also contains opaque archives (`*.gz`, `*.wbm`), so it was left out
-to keep the source tree easy to audit.
+- `contrib/` holds third-party packaging helpers for other platforms
+  (Slackware, Webmin, old macOS packaging). It is not used by the MultiBooter
+  build. It also contains opaque archives (`*.gz`, `*.wbm`), so it was left out
+  to keep the source tree easy to audit.
+- `logo/` holds the dnsmasq logo images. They are not used by MultiBooter, and
+  the upstream `logo/README` states only who contributed the logo and gives no
+  license for it, so it was left out.
 
 Nothing else was removed, added or edited. In particular:
 
@@ -86,7 +90,7 @@ sha256sum dnsmasq-2.93.tar.gz        # must match section 1
 mkdir /tmp/dnsmasq-upstream
 tar -xf dnsmasq-2.93.tar.gz --strip-components=1 -C /tmp/dnsmasq-upstream
 
-diff -r --exclude=contrib --exclude=UPSTREAM.md \
+diff -r --exclude=contrib --exclude=logo --exclude=UPSTREAM.md \
     /tmp/dnsmasq-upstream src/native/dnsmasq
 ```
 
