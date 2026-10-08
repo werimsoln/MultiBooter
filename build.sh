@@ -346,6 +346,25 @@ find "$GRUB_DIR" \
     ! -name grub.cfg \
     -exec cp -a '{}' "$VENTOY_WORK_DIR/root/grub/" ';'
 
+# Normalize permissions before creating deterministic tar archives.
+find "$VENTOY_WORK_DIR/root/grub/help" \
+    -type d \
+    -exec chmod 755 '{}' +
+
+find "$VENTOY_WORK_DIR/root/grub/help" \
+    -type f \
+    -exec chmod 644 '{}' +
+
+if [[ -d "$VENTOY_WORK_DIR/root/grub/menu" ]]; then
+    find "$VENTOY_WORK_DIR/root/grub/menu" \
+        -type d \
+        -exec chmod 755 '{}' +
+
+    find "$VENTOY_WORK_DIR/root/grub/menu" \
+        -type f \
+        -exec chmod 644 '{}' +
+fi
+
 (
     cd "$VENTOY_WORK_DIR/root/grub"
 
