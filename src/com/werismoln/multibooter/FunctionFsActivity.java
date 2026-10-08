@@ -43,7 +43,7 @@ import android.widget.Toast;
 import java.io.File;
 import java.util.Locale;
 
-public class FunctionFsActivity extends Activity {
+public class FunctionFsActivity extends BaseActivity {
 
     private static final int REQUEST_ISO =
         7401;

@@ -24,7 +24,7 @@ import android.widget.Toast;
 import java.io.File;
 import java.util.Locale;
 
-public class GadgetActivity extends Activity {
+public class GadgetActivity extends BaseActivity {
 
     private static final int REQUEST_IMAGE =
         7301;

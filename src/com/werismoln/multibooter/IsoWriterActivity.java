@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public class IsoWriterActivity extends Activity {
+public class IsoWriterActivity extends BaseActivity {
 
     private static final int REQUEST_OPEN_ISO = 4201;
 

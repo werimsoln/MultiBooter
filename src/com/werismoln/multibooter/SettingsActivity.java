@@ -51,7 +51,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SettingsActivity extends Activity {
+public class SettingsActivity extends BaseActivity {
 
     private static final int REQUEST_STORAGE_PERMISSION = 5100;
     private static final int REQUEST_NOTIFICATION_PERMISSION = 5101;

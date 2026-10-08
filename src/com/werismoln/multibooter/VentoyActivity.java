@@ -49,7 +49,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public class VentoyActivity extends Activity {
+public class VentoyActivity extends BaseActivity {
 
     private static final String STATE_PAGE =
         "ventoy_page";

@@ -35,7 +35,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class AboutActivity extends Activity {
+public class AboutActivity extends BaseActivity {
 
     private static final String SOURCE_URL =
         "https://github.com/werimsoln/MultiBooter";

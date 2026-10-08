@@ -53,7 +53,7 @@ import java.io.FileReader;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
-public class MainActivity extends Activity {
+public class MainActivity extends BaseActivity {
 
     private static final int REQUEST_STORAGE_PERMISSION = 100;
     private static final int REQUEST_NOTIFICATION_PERMISSION = 101;

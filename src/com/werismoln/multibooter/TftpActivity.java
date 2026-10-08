@@ -48,7 +48,7 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 
-public class TftpActivity extends Activity {
+public class TftpActivity extends BaseActivity {
 
     private static final long STATUS_INTERVAL_MS = 2000L;
 

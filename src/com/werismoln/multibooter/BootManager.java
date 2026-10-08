@@ -40,7 +40,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 
-public class BootManager extends Activity {
+public class BootManager extends BaseActivity {
 
     private static final int BOOT_NONE = 0;
     private static final int BOOT_VENTOY = 1;
