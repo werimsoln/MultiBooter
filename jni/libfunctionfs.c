@@ -1,7 +1,7 @@
 /******************************************************************************
  * libfunctionfs.c
  *
- * Copyright (c) 2026, werismoln <vlkanblek@gmail.com>
+ * Copyright (c) 2026, Volkan Belek <vlkanblek@gmail.com>
  *
  * GPLv3+
  *

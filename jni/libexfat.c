@@ -3,7 +3,7 @@
  *
  * Minimal exFAT formatter core for MultiBooter.
  *
- * Copyright (c) 2026, werismoln <vlkanblek@gmail.com>
+ * Copyright (c) 2026, Volkan Belek <vlkanblek@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
