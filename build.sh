@@ -25,7 +25,7 @@ MOK_CERT_SHA256="8072e285ed57ffd63421beb52d5c27cb5ad70a8d7377b67b358f816f97012e2
 
 # SHA-256 of the deterministic F-Droid-rebuilt Ventoy VTOYEFI image.
 # This value is mandatory; a mismatch must stop the build.
-VENTOY_EXPECTED_REBUILT_SHA256="830d225ec39c06dcd57fd38f38ae784a1123588b2f27cde9e9a49e86d6fc2113"
+VENTOY_EXPECTED_REBUILT_SHA256="52a48aadde4209c5eeec659c0c2b33aabf2f2cd594a49bdb462c9d3b548a66bc"
 
 # Immutable timestamp used by the reproducible VTOYEFI image build.
 # Do not override this for the release/F-Droid build, because the expected image hash

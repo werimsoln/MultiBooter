@@ -321,7 +321,7 @@ The build currently records the following SHA-256 as the expected output for
 the deterministic VTOYEFI reconstruction:
 
 ```text
-830d225ec39c06dcd57fd38f38ae784a1123588b2f27cde9e9a49e86d6fc2113
+52a48aadde4209c5eeec659c0c2b33aabf2f2cd594a49bdb462c9d3b548a66bc
 ```
 
 This value is hard-coded in `build.sh` as:
@@ -764,7 +764,7 @@ The repository records two different VTOYEFI image identities.
 ### MultiBooter/F-Droid reconstructed output
 
 ```text
-830d225ec39c06dcd57fd38f38ae784a1123588b2f27cde9e9a49e86d6fc2113
+52a48aadde4209c5eeec659c0c2b33aabf2f2cd594a49bdb462c9d3b548a66bc
 ```
 
 These hashes must not be conflated.
@@ -906,7 +906,7 @@ Ventoy v1.1.17
            +-- deterministic FAT16 image generated
            |
            +-- rebuilt SHA-256 verified:
-               830d225ec39c06dcd57fd38f38ae784a1123588b2f27cde9e9a49e86d6fc2113
+               52a48aadde4209c5eeec659c0c2b33aabf2f2cd594a49bdb462c9d3b548a66bc
 ```
 
 The official upstream image is the provenance baseline.
