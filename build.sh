@@ -68,6 +68,8 @@ VENTOY_SRC="${VENTOY_SRC:-}"
 VENTOY_IMAGE="src/main/assets/ventoy.disk.img"
 VENTOY_WORK_DIR="${VENTOY_WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/multibooter-ventoy.XXXXXX")}"
 
+PATH="$PATH:/usr/sbin:/sbin"
+
 cleanup() {
     rm -rf "$VENTOY_WORK_DIR"
 }
@@ -83,7 +85,7 @@ fail() {
 }
 
 require_cmd() {
-    command -v "$1" >/dev/null 2>&1 || fail "Gerekli arac bulunamadi: $1"
+    command -v "$1" >/dev/null 2>&1 || fail "Required tool not found: $1"
 }
 
 verify_sha256() {
@@ -92,18 +94,18 @@ verify_sha256() {
     local label="$3"
     local actual
 
-    [[ -f "$file" ]] || fail "$label bulunamadi: $file"
+    [[ -f "$file" ]] || fail "$label not found: $file"
 
     actual="$(sha256sum "$file" | awk '{print $1}')"
 
     if [[ "$actual" != "$expected" ]]; then
-        echo "[ERROR] $label SHA-256 uyusmuyor." >&2
-        echo "[ERROR] Beklenen: $expected" >&2
-        echo "[ERROR] Gercek:    $actual" >&2
+        echo "[ERROR] $label SHA-256 does not match." >&2
+        echo "[ERROR] Expected: $expected" >&2
+        echo "[ERROR] Actual:   $actual" >&2
         exit 1
     fi
 
-    echo "[OK] $label SHA-256 dogrulandi: $actual"
+    echo "[OK] $label SHA-256 verified: $actual"
 }
 
 validate_sha256_value() {
@@ -111,7 +113,7 @@ validate_sha256_value() {
     local label="$2"
 
     [[ "$value" =~ ^[0-9a-fA-F]{64}$ ]] ||
-        fail "$label gecersiz. 64 karakterlik SHA-256 bekleniyor."
+        fail "$label is invalid. Expected a 64-character SHA-256 hash."
 }
 
 validate_sha256_value "$VENTOY_DISK_IMG_SHA256" "VENTOY_DISK_IMG_SHA256"
@@ -125,41 +127,41 @@ validate_sha256_value "$MOK_CERT_SHA256" "MOK_CERT_SHA256"
 validate_sha256_value "$VENTOY_EXPECTED_REBUILT_SHA256" "VENTOY_EXPECTED_REBUILT_SHA256"
 
 [[ "$VENTOY_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]] ||
-    fail "VENTOY_COMMIT gecersiz. 40 karakterlik Git commit bekleniyor."
+    fail "VENTOY_COMMIT is invalid. Expected a 40-character Git commit hash."
 
 [[ "$SOURCE_DATE_EPOCH" =~ ^[0-9]+$ ]] ||
-    fail "SOURCE_DATE_EPOCH gecersiz. Unix epoch olarak sayisal bir deger bekleniyor."
+    fail "SOURCE_DATE_EPOCH is invalid. Expected a numeric Unix epoch value."
 
-echo "[0/15] Ortam kontrol ediliyor..."
+echo "[0/15] Checking the environment..."
 
 [[ "$(uname -s)" == "Linux" ]] ||
-    fail "Bu build scripti Linux icin tasarlanmistir."
+    fail "This build script is designed for Linux."
 
 [[ "$(uname -m)" == "x86_64" ]] ||
-    fail "Bu build scripti linux-x86_64 Android/NDK arac zincirini kullaniyor; x86_64 host gerekli."
+    fail "This build script uses the linux-x86_64 Android/NDK toolchain; an x86_64 host is required."
 
 [[ -f "$PLATFORM" ]] || {
-    echo "[ERROR] android.jar bulunamadi: $PLATFORM"
+    echo "[ERROR] android.jar not found: $PLATFORM"
     exit 1
 }
 
 [[ -x "$CLANG" ]] || {
-    echo "[ERROR] NDK clang bulunamadi: $CLANG"
+    echo "[ERROR] NDK clang not found: $CLANG"
     exit 1
 }
 
 [[ -x "$AAPT2" ]] || {
-    echo "[ERROR] aapt2 bulunamadi: $AAPT2"
+    echo "[ERROR] aapt2 not found: $AAPT2"
     exit 1
 }
 
 [[ -x "$AAPT" ]] || {
-    echo "[ERROR] aapt bulunamadi: $AAPT"
+    echo "[ERROR] aapt not found: $AAPT"
     exit 1
 }
 
 [[ -x "$ZIPALIGN" ]] || {
-    echo "[ERROR] zipalign bulunamadi: $ZIPALIGN"
+    echo "[ERROR] zipalign not found: $ZIPALIGN"
     exit 1
 }
 
@@ -179,20 +181,20 @@ D8_BIN=""
 
 if [[ -n "$D8_JAR" ]]; then
     [[ -f "$D8_JAR" ]] ||
-        fail "D8_JAR olarak verilen dosya bulunamadi: $D8_JAR"
+        fail "File specified by D8_JAR not found: $D8_JAR"
 elif [[ -f "$BUILD_TOOLS/lib/d8.jar" ]]; then
     D8_JAR="$BUILD_TOOLS/lib/d8.jar"
 elif [[ -x "$BUILD_TOOLS/d8" ]]; then
     D8_BIN="$BUILD_TOOLS/d8"
 else
-    echo "[ERROR] D8 bulunamadi."
-    echo "[ERROR] Aranan konumlar:"
+    echo "[ERROR] D8 not found."
+    echo "[ERROR] Searched locations:"
     echo "        $BUILD_TOOLS/lib/d8.jar"
     echo "        $BUILD_TOOLS/d8"
     exit 1
 fi
 
-echo "[OK] Android build ortami hazir."
+echo "[OK] Android build environment is ready."
 echo "[OK] Project root: $PROJECT_ROOT"
 echo "[OK] Android API: $ANDROID_API"
 echo "[OK] Build Tools: $BUILD_TOOLS_VERSION"
@@ -208,7 +210,7 @@ fi
 
 echo
 
-echo "[1/15] Eski build temizleniyor..."
+echo "[1/15] Cleaning the previous build..."
 
 rm -rf gen obj dex-out lib
 rm -f compiled_res.zip sources.txt classes.dex
@@ -226,57 +228,57 @@ rm -f src/main/assets/ventoy.disk.img.sha256
 # Never delete the checked-in ventoy.disk.img before its upstream reference hash
 # has been verified below in step [4/15].
 
-echo "[OK] Temizlik tamam."
+echo "[OK] Cleanup complete."
 echo
 
-echo "[2/15] Ventoy kaynak kontrol ediliyor..."
+echo "[2/15] Checking the Ventoy source..."
 
 if [[ -z "$VENTOY_SRC" ]]; then
-    echo "[ERROR] VENTOY_SRC tanimli degil."
-    echo "[ERROR] F-Droid build ortaminda Ventoy@v1.1.17 srclib yolu verilmelidir."
+    echo "[ERROR] VENTOY_SRC is not set."
+    echo "[ERROR] The Ventoy@v1.1.17 srclib path must be provided in the F-Droid build environment."
     exit 1
 fi
 
 [[ -d "$VENTOY_SRC" ]] || {
-    echo "[ERROR] Ventoy kaynak dizini bulunamadi: $VENTOY_SRC"
+    echo "[ERROR] Ventoy source directory not found: $VENTOY_SRC"
     exit 1
 }
 
 git -C "$VENTOY_SRC" rev-parse --git-dir >/dev/null 2>&1 || {
-    echo "[ERROR] Ventoy kaynak dizini bir Git deposu degil: $VENTOY_SRC"
-    echo "[ERROR] Pinned Ventoy commit dogrulamasi yapilamayacagi icin build durduruldu."
+    echo "[ERROR] Ventoy source directory is not a Git repository: $VENTOY_SRC"
+    echo "[ERROR] Build aborted because the pinned Ventoy commit cannot be verified."
     exit 1
 }
 
 VENTOY_ACTUAL_COMMIT="$(git -C "$VENTOY_SRC" rev-parse HEAD 2>/dev/null)" ||
-    fail "Ventoy kaynak commit'i okunamadi: $VENTOY_SRC"
+    fail "Could not read the Ventoy source commit: $VENTOY_SRC"
 
 if [[ "$VENTOY_ACTUAL_COMMIT" != "$VENTOY_COMMIT" ]]; then
-    echo "[ERROR] Ventoy kaynak commit'i beklenen surumle eslesmiyor." >&2
-    echo "[ERROR] Beklenen: $VENTOY_COMMIT" >&2
-    echo "[ERROR] Gercek:    $VENTOY_ACTUAL_COMMIT" >&2
+    echo "[ERROR] Ventoy source commit does not match the expected revision." >&2
+    echo "[ERROR] Expected: $VENTOY_COMMIT" >&2
+    echo "[ERROR] Actual:   $VENTOY_ACTUAL_COMMIT" >&2
     exit 1
 fi
 
-echo "[OK] Ventoy commit dogrulandi: $VENTOY_ACTUAL_COMMIT"
+echo "[OK] Ventoy commit verified: $VENTOY_ACTUAL_COMMIT"
 
 [[ -d "$VENTOY_SRC/INSTALL" ]] || {
-    echo "[ERROR] Ventoy INSTALL klasoru bulunamadi: $VENTOY_SRC/INSTALL"
+    echo "[ERROR] Ventoy INSTALL directory not found: $VENTOY_SRC/INSTALL"
     exit 1
 }
 
 [[ -d "$VENTOY_SRC/INSTALL/grub" ]] || {
-    echo "[ERROR] $VENTOY_SRC/INSTALL/grub bulunamadi."
+    echo "[ERROR] $VENTOY_SRC/INSTALL/grub not found."
     exit 1
 }
 
 [[ -d "$VENTOY_SRC/INSTALL/EFI" ]] || {
-    echo "[ERROR] $VENTOY_SRC/INSTALL/EFI bulunamadi."
+    echo "[ERROR] $VENTOY_SRC/INSTALL/EFI not found."
     exit 1
 }
 
 [[ -d "$VENTOY_SRC/INSTALL/ventoy" ]] || {
-    echo "[ERROR] $VENTOY_SRC/INSTALL/ventoy bulunamadi."
+    echo "[ERROR] $VENTOY_SRC/INSTALL/ventoy not found."
     exit 1
 }
 
@@ -307,21 +309,21 @@ MOK_CERT="$VENTOY_SRC/INSTALL/tool/ENROLL_THIS_KEY_IN_MOKMANAGER.cer"
 verify_sha256 \
     "$MOK_CERT" \
     "$MOK_CERT_SHA256" \
-    "Ventoy MOK sertifikasi"
+    "Ventoy MOK certificate"
 
-echo "[OK] Ventoy kaynaklari ve tum pinli imzali/Secure Boot varliklari dogrulandi: $VENTOY_SRC"
+echo "[OK] Ventoy source and all pinned, signed/Secure Boot assets verified: $VENTOY_SRC"
 echo
 
-echo "[3/15] Ventoy disk image icin gerekli araclar kontrol ediliyor..."
+echo "[3/15] Checking the tools required to build the Ventoy disk image..."
 
 for tool in awk date dd faketime find grep mkfs.vfat mcopy mmd gzip sha256sum sort stat tar touch; do
     require_cmd "$tool"
 done
 
-echo "[OK] Ventoy image araclari hazir."
+echo "[OK] Ventoy image tools are ready."
 echo
 
-echo "[4/15] Ventoy disk image yeniden olusturuluyor..."
+echo "[4/15] Rebuilding the Ventoy disk image..."
 
 # SOURCE_DATE_EPOCH is deliberately fixed above for the release build.
 export SOURCE_DATE_EPOCH
@@ -331,7 +333,7 @@ INSTALL_DIR="$VENTOY_SRC/INSTALL"
 GRUB_DIR="$INSTALL_DIR/grub"
 
 [[ -f "$GRUB_DIR/grub.cfg" ]] || {
-    echo "[ERROR] Ventoy grub.cfg bulunamadi."
+    echo "[ERROR] Ventoy grub.cfg not found."
     exit 1
 }
 
@@ -515,12 +517,12 @@ copy_tree() {
 copy_tree "$VENTOY_WORK_DIR/root" ::
 
 [[ -f "$VENTOY_IMAGE" ]] ||
-    fail "Ventoy disk image olusturulamadi: $VENTOY_IMAGE"
+    fail "Could not create the Ventoy disk image: $VENTOY_IMAGE"
 
 VENTOY_IMAGE_SIZE="$(stat -c%s "$VENTOY_IMAGE")"
 
 [[ "$VENTOY_IMAGE_SIZE" -eq 33554432 ]] ||
-    fail "Rebuilt Ventoy VTOYEFI image boyutu 33554432 byte olmali; gercek: $VENTOY_IMAGE_SIZE"
+    fail "The rebuilt Ventoy VTOYEFI image must be 33554432 bytes; actual size: $VENTOY_IMAGE_SIZE"
 
 VENTOY_REBUILT_SHA256="$(
     sha256sum "$VENTOY_IMAGE" |
@@ -534,10 +536,10 @@ verify_sha256 \
     "reproducible Ventoy VTOYEFI image"
 
 echo "[INFO] Rebuilt Ventoy VTOYEFI SHA-256: $VENTOY_REBUILT_SHA256"
-echo "[OK] Ventoy disk image yeniden olusturuldu."
+echo "[OK] Ventoy disk image rebuilt."
 echo
 
-echo "[5/15] Paketlenecek Ventoy assetleri dogrulaniyor..."
+echo "[5/15] Verifying Ventoy assets to be packaged..."
 
 verify_sha256 \
     "src/main/assets/boot.img" \
@@ -550,22 +552,22 @@ verify_sha256 \
     "core.img"
 
 [[ "$(stat -c%s src/main/assets/boot.img)" -eq 512 ]] ||
-    fail "boot.img boyutu 512 byte olmali."
+    fail "boot.img must be 512 bytes."
 
 [[ "$(stat -c%s src/main/assets/core.img)" -eq 1048064 ]] ||
-    fail "core.img boyutu 1048064 byte olmali."
+    fail "core.img must be 1048064 bytes."
 
 [[ "$(stat -c%s "$VENTOY_IMAGE")" -eq 33554432 ]] ||
-    fail "ventoy.disk.img boyutu 33554432 byte olmali."
+    fail "ventoy.disk.img must be 33554432 bytes."
 
-echo "[OK] Ventoy boot/core/VTOYEFI assetleri dogrulandi."
+echo "[OK] Ventoy boot/core/VTOYEFI assets verified."
 echo
 
-echo "[6/15] Native kodlar 4 ABI icin derleniyor..."
+echo "[6/15] Compiling native code for all 4 ABIs..."
 
 for file in libgadget.c libscsi.c libtftp.c libexfat.c libfunctionfs.c; do
     [[ -f "jni/$file" ]] || {
-        echo "[ERROR] jni/$file bulunamadi."
+        echo "[ERROR] jni/$file not found."
         exit 1
     }
 done
@@ -591,7 +593,7 @@ for abi in arm64-v8a armeabi-v7a x86 x86_64; do
             ;;
 
         *)
-            echo "[ERROR] Bilinmeyen ABI: $abi"
+            echo "[ERROR] Unknown ABI: $abi"
             exit 1
             ;;
 
@@ -667,10 +669,10 @@ for abi in arm64-v8a armeabi-v7a x86 x86_64; do
 done
 
 echo
-echo "[OK] Native kutuphaneler derlendi."
+echo "[OK] Native libraries compiled."
 echo
 
-echo "[7/15] dnsmasq 4 ABI icin derleniyor..."
+echo "[7/15] Compiling dnsmasq for all 4 ABIs..."
 
 DNSMASQ_SRC="src/native/dnsmasq/src"
 DNSMASQ_ASSETS="src/main/assets"
@@ -687,7 +689,7 @@ if [[ -f "$DNSMASQ_SRC/dnsmasq.c" ]]; then
     )
 
     [[ ${#DNSMASQ_SOURCES[@]} -gt 0 ]] || {
-        echo "[ERROR] dnsmasq C kaynaklari bulunamadi."
+        echo "[ERROR] dnsmasq C source files not found."
         exit 1
     }
 
@@ -716,7 +718,7 @@ if [[ -f "$DNSMASQ_SRC/dnsmasq.c" ]]; then
                 ;;
 
             *)
-                echo "[ERROR] Bilinmeyen dnsmasq ABI: $abi"
+                echo "[ERROR] Unknown dnsmasq ABI: $abi"
                 exit 1
                 ;;
 
@@ -740,22 +742,22 @@ if [[ -f "$DNSMASQ_SRC/dnsmasq.c" ]]; then
             -o "$output"
 
         [[ -f "$output" ]] || {
-            echo "[ERROR] dnsmasq $abi cikti dosyasi olusmadi."
+            echo "[ERROR] The dnsmasq output file for $abi was not created."
             exit 1
         }
 
-        echo "[OK] $abi dnsmasq hazir."
+        echo "[OK] dnsmasq is ready for $abi."
 
     done
 
 else
 
-    echo "[INFO] dnsmasq kaynaklari bulunamadi; mevcut 4 ABI asset kontrol ediliyor."
+    echo "[INFO] dnsmasq sources not found; checking existing assets for all 4 ABIs."
 
     for abi in arm64-v8a armeabi-v7a x86 x86_64; do
 
         [[ -f "$DNSMASQ_ASSETS/dnsmasq-$abi" ]] || {
-            echo "[ERROR] $DNSMASQ_ASSETS/dnsmasq-$abi bulunamadi."
+            echo "[ERROR] $DNSMASQ_ASSETS/dnsmasq-$abi not found."
             exit 1
         }
 
@@ -764,19 +766,19 @@ else
 fi
 
 echo
-echo "[OK] dnsmasq 4 ABI icin hazir."
+echo "[OK] dnsmasq is ready for all 4 ABIs."
 echo
 
-echo "[8/15] Resources derleniyor..."
+echo "[8/15] Compiling resources..."
 
 "$AAPT2" compile \
     --dir res \
     -o compiled_res.zip
 
-echo "[OK] Resources compile edildi."
+echo "[OK] Resources compiled."
 echo
 
-echo "[9/15] Resources ve assets link ediliyor..."
+echo "[9/15] Linking resources and assets..."
 
 "$AAPT2" link \
     -o app-unaligned.apk \
@@ -787,10 +789,10 @@ echo "[9/15] Resources ve assets link ediliyor..."
     --auto-add-overlay \
     --java gen
 
-echo "[OK] Resources ve assets eklendi."
+echo "[OK] Resources and assets added."
 echo
 
-echo "[10/15] Java kaynaklari derleniyor..."
+echo "[10/15] Compiling Java sources..."
 
 : > sources.txt
 
@@ -811,10 +813,10 @@ javac \
     -cp "$PLATFORM" \
     @sources.txt
 
-echo "[OK] Java derlendi."
+echo "[OK] Java compilation complete."
 echo
 
-echo "[11/15] D8 ile DEX uretiliyor..."
+echo "[11/15] Generating DEX with D8..."
 echo
 
 rm -rf dex-out
@@ -844,7 +846,7 @@ else
 
 fi
 
-echo "[12/15] DEX ve native kutuphaneler APK'ya ekleniyor..."
+echo "[12/15] Adding DEX and native libraries to the APK..."
 
 cp dex-out/classes.dex classes.dex
 
@@ -856,14 +858,14 @@ rm -f classes.dex
 rm -rf dex-out
 rm -f classes-input.jar
 
-echo "[OK] DEX ve native kutuphaneler eklendi."
+echo "[OK] DEX and native libraries added."
 echo
 
-echo "[13/15] APK icerigi ve provenance kontrol ediliyor..."
+echo "[13/15] Checking APK contents and provenance..."
 
 "$AAPT" list app-unaligned.apk |
     grep -Fxq "classes.dex" || {
-        echo "[ERROR] classes.dex APK icinde yok."
+        echo "[ERROR] classes.dex is missing from the APK."
         exit 1
     }
 
@@ -879,7 +881,7 @@ for abi in arm64-v8a armeabi-v7a x86 x86_64; do
 
         "$AAPT" list app-unaligned.apk |
             grep -Fxq "lib/$abi/$libname" || {
-                echo "[ERROR] lib/$abi/$libname APK icinde yok."
+                echo "[ERROR] lib/$abi/$libname is missing from the APK."
                 exit 1
             }
 
@@ -891,7 +893,7 @@ for abi in arm64-v8a armeabi-v7a x86 x86_64; do
 
     "$AAPT" list app-unaligned.apk |
         grep -Fxq "assets/dnsmasq-$abi" || {
-            echo "[ERROR] assets/dnsmasq-$abi APK icinde yok."
+            echo "[ERROR] assets/dnsmasq-$abi is missing from the APK."
             exit 1
         }
 
@@ -899,34 +901,34 @@ done
 
 "$AAPT" list app-unaligned.apk |
     grep -Fxq "assets/ventoy.disk.img" || {
-        echo "[ERROR] assets/ventoy.disk.img APK icinde yok."
+        echo "[ERROR] assets/ventoy.disk.img is missing from the APK."
         exit 1
     }
 
 if "$AAPT" list app-unaligned.apk |
     grep -Fx "assets/ventoy.disk.img.sha256" >/dev/null
 then
-    echo "[ERROR] assets/ventoy.disk.img.sha256 APK icinde olmamali."
+    echo "[ERROR] assets/ventoy.disk.img.sha256 must not be present in the APK."
     exit 1
 fi
 
 # Verify the exact VTOYEFI bytes that were actually packaged into the APK.
 APK_VENTOY_IMAGE="$VENTOY_WORK_DIR/apk-ventoy.disk.img"
 unzip -p app-unaligned.apk assets/ventoy.disk.img > "$APK_VENTOY_IMAGE" ||
-    fail "APK icindeki assets/ventoy.disk.img cikartilamadi."
+    fail "Could not extract assets/ventoy.disk.img from the APK."
 
 [[ "$(stat -c%s "$APK_VENTOY_IMAGE")" -eq 33554432 ]] ||
-    fail "APK icindeki ventoy.disk.img boyutu 33554432 byte olmali."
+    fail "ventoy.disk.img in the APK must be 33554432 bytes."
 
 verify_sha256 \
     "$APK_VENTOY_IMAGE" \
     "$VENTOY_EXPECTED_REBUILT_SHA256" \
-    "APK icindeki ventoy.disk.img"
+    "APK-packaged ventoy.disk.img"
 
-echo "[OK] APK icerigi ve provenance kontrolleri dogru."
+echo "[OK] APK contents and provenance checks passed."
 echo
 
-echo "[14/15] APK align ediliyor ve dogrulaniyor..."
+echo "[14/15] Aligning and verifying the APK..."
 
 "$ZIPALIGN" \
     -f \
@@ -942,10 +944,10 @@ echo "[14/15] APK align ediliyor ve dogrulaniyor..."
 echo
 
 echo "=========================================="
-echo "      F-DROID BUILD BASARILI"
+echo "      F-DROID BUILD SUCCESSFUL"
 echo "=========================================="
 echo "APK: $(pwd)/app-release-unsigned.apk"
-echo "APK boyutu: $(stat -c%s app-release-unsigned.apk) bytes"
+echo "APK size: $(stat -c%s app-release-unsigned.apk) bytes"
 echo "APK SHA-256: $(sha256sum app-release-unsigned.apk | awk '{print $1}')"
 echo "Ventoy version: $VENTOY_VERSION"
 echo "Ventoy commit: $VENTOY_ACTUAL_COMMIT"
