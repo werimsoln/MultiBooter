@@ -1,0 +1,2 @@
+- logs in build.sh translated to English.
+- command detection issue in build.sh is fixed.
