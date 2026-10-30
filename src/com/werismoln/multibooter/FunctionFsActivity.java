@@ -32,6 +32,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
@@ -57,6 +58,9 @@ public class FunctionFsActivity extends BaseActivity {
         );
 
     private EditText isoPathEdit;
+    private Uri isoUri;
+    private String isoUriLabel =
+        "";
     private TextView isoInfo;
     private TextView supportStatus;
     private ProgressBar setupProgress;
@@ -382,6 +386,11 @@ public class FunctionFsActivity extends BaseActivity {
         } catch (Throwable ignored) {
         }
 
+        /*
+         * The native backend receives a file descriptor opened through the
+         * ContentResolver, so no filesystem path is required. The path is
+         * only a label for the text field.
+         */
         String path =
             resolveLocalPath(
                 uri
@@ -391,23 +400,15 @@ public class FunctionFsActivity extends BaseActivity {
             path.length() == 0
         ) {
 
-            new AlertDialog.Builder(
-                this
-            )
-                .setTitle(
-                    "A real filesystem path is required"
-                )
-                .setMessage(
-                    "The native FunctionFS SCSI backend opens the ISO with fopen(), so it cannot use a content:// URI directly. Select an ISO stored in normal shared/internal storage or enter its absolute path manually."
-                )
-                .setPositiveButton(
-                    "OK",
-                    null
-                )
-                .show();
-
-            return;
+            path =
+                uri.toString();
         }
+
+        isoUri =
+            uri;
+
+        isoUriLabel =
+            path;
 
         isoPathEdit.setText(
             path
@@ -441,6 +442,18 @@ public class FunctionFsActivity extends BaseActivity {
             return;
         }
 
+        if (
+            isoUri != null &&
+            path.trim().equals(
+                isoUriLabel
+            )
+        ) {
+
+            showPickedIsoInfo();
+
+            return;
+        }
+
         File iso =
             new File(
                 path.trim()
@@ -464,6 +477,89 @@ public class FunctionFsActivity extends BaseActivity {
                 iso.length()
             ) +
             "\nRead-only virtual CD-ROM • 2048-byte SCSI logical blocks"
+        );
+    }
+
+    private void showPickedIsoInfo() {
+
+        String name =
+            isoUriLabel;
+
+        long size =
+            -1L;
+
+        Cursor cursor =
+            null;
+
+        try {
+
+            cursor =
+                getContentResolver()
+                    .query(
+                        isoUri,
+                        new String[] {
+                            OpenableColumns.DISPLAY_NAME,
+                            OpenableColumns.SIZE
+                        },
+                        null,
+                        null,
+                        null
+                    );
+
+            if (
+                cursor != null &&
+                cursor.moveToFirst()
+            ) {
+
+                if (
+                    !cursor.isNull(
+                        0
+                    )
+                ) {
+
+                    name =
+                        cursor.getString(
+                            0
+                        );
+                }
+
+                if (
+                    !cursor.isNull(
+                        1
+                    )
+                ) {
+
+                    size =
+                        cursor.getLong(
+                            1
+                        );
+                }
+            }
+
+        } catch (Throwable ignored) {
+
+        } finally {
+
+            if (cursor != null) {
+
+                try {
+                    cursor.close();
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+
+        isoInfo.setText(
+            name +
+            "\n" +
+            (
+                size >= 0
+                    ? formatBytes(
+                        size
+                    )
+                    : "Unknown size"
+            ) +
+            "\nRead-only virtual CD-ROM \u2022 2048-byte SCSI logical blocks"
         );
     }
 
@@ -655,6 +751,16 @@ public class FunctionFsActivity extends BaseActivity {
                 iso
             );
 
+        final Uri pickedUri =
+            (
+                isoUri != null &&
+                iso.equals(
+                    isoUriLabel
+                )
+            )
+                ? isoUri
+                : null;
+
         if (
             !supportReady
         ) {
@@ -669,8 +775,11 @@ public class FunctionFsActivity extends BaseActivity {
         }
 
         if (
-            !file.isFile() ||
-            !file.canRead()
+            pickedUri == null &&
+            (
+                !file.isFile() ||
+                !file.canRead()
+            )
         ) {
 
             Toast.makeText(
@@ -690,7 +799,7 @@ public class FunctionFsActivity extends BaseActivity {
             )
             .setMessage(
                 "ISO:\n" +
-                file.getAbsolutePath() +
+                iso +
                 "\n\nMultiBooter will create ffs.multiboot, mount FunctionFS at " +
                 FunctionFileSystem.getMountPath() +
                 ", start the native USB Mass Storage BOT/SCSI backend and reconnect the UDC.\n\nThe ISO is exposed read-only as a 2048-byte-block virtual optical device."
@@ -710,7 +819,8 @@ public class FunctionFsActivity extends BaseActivity {
                     ) {
 
                         performStart(
-                            iso
+                            iso,
+                            pickedUri
                         );
                     }
                 }
@@ -719,7 +829,8 @@ public class FunctionFsActivity extends BaseActivity {
     }
 
     private void performStart(
-        final String iso
+        final String iso,
+        final Uri pickedUri
     ) {
 
         operationRunning =
@@ -738,7 +849,8 @@ public class FunctionFsActivity extends BaseActivity {
                     final boolean success =
                         FunctionFileSystem.start(
                             FunctionFsActivity.this,
-                            iso
+                            iso,
+                            pickedUri
                         );
 
                     final String error =

@@ -284,6 +284,8 @@ static int g_ep_in = -1;
 static int g_ep_out = -1;
 
 static char *g_iso_path = NULL;
+/* Owned descriptor for a SAF-selected ISO; -1 when using a filesystem path. */
+static int g_iso_fd = -1;
 static char g_last_error[512] = "";
 
 struct sense_state {
@@ -1618,17 +1620,16 @@ static void close_data_endpoints(void)
 
 static void *scsi_thread_main(void *argument)
 {
-    char *iso_path = (char *)argument;
+    FILE *iso_file = (FILE *)argument;
     int ep_in = -1;
     int ep_out = -1;
-    FILE *iso_file = NULL;
     uint64_t iso_size;
 
-    LOGI("SCSI thread starting for %s", iso_path);
+    LOGI("SCSI thread starting");
 
     if (open_data_endpoints_with_retry(&ep_in, &ep_out) != 0) {
         set_last_error("FunctionFS ep1/ep2 could not be opened.");
-        free(iso_path);
+        fclose(iso_file);
 
         pthread_mutex_lock(&g_lock);
         g_scsi_running = 0;
@@ -1641,26 +1642,12 @@ static void *scsi_thread_main(void *argument)
     g_ep_out = ep_out;
     pthread_mutex_unlock(&g_lock);
 
-    iso_file = fopen(iso_path, "rb");
-
-    if (iso_file == NULL) {
-        set_last_errno("ISO file could not be opened");
-        close_data_endpoints();
-        free(iso_path);
-
-        pthread_mutex_lock(&g_lock);
-        g_scsi_running = 0;
-        pthread_mutex_unlock(&g_lock);
-        return NULL;
-    }
-
     iso_size = file_size_bytes(iso_file);
 
     if (iso_size == 0) {
         set_last_error("ISO file is empty or its size could not be read.");
         fclose(iso_file);
         close_data_endpoints();
-        free(iso_path);
 
         pthread_mutex_lock(&g_lock);
         g_scsi_running = 0;
@@ -1752,7 +1739,6 @@ static void *scsi_thread_main(void *argument)
 
     fclose(iso_file);
     close_data_endpoints();
-    free(iso_path);
 
     pthread_mutex_lock(&g_lock);
     g_scsi_running = 0;
@@ -1833,7 +1819,8 @@ static void handle_setup_event(
 
 static int start_scsi_thread_if_needed(void)
 {
-    char *path_copy;
+    FILE *iso_file = NULL;
+    int duplicate_fd = -1;
 
     pthread_mutex_lock(&g_lock);
 
@@ -1841,16 +1828,34 @@ static int start_scsi_thread_if_needed(void)
         g_stop_requested ||
         g_scsi_running ||
         g_scsi_thread_created ||
-        g_iso_path == NULL
+        (g_iso_path == NULL && g_iso_fd < 0)
     ) {
         pthread_mutex_unlock(&g_lock);
         return 0;
     }
 
-    path_copy = strdup(g_iso_path);
-    if (path_copy == NULL) {
+    /* Give the SCSI worker its own descriptor/stream lifetime. */
+    if (g_iso_fd >= 0) {
+        duplicate_fd = dup(g_iso_fd);
+        if (duplicate_fd >= 0) {
+            int descriptor_flags = fcntl(duplicate_fd, F_GETFD);
+            if (descriptor_flags >= 0) {
+                (void)fcntl(duplicate_fd, F_SETFD,
+                            descriptor_flags | FD_CLOEXEC);
+            }
+
+            iso_file = fdopen(duplicate_fd, "rb");
+            if (iso_file == NULL) {
+                close(duplicate_fd);
+            }
+        }
+    } else {
+        iso_file = fopen(g_iso_path, "rb");
+    }
+
+    if (iso_file == NULL) {
         pthread_mutex_unlock(&g_lock);
-        set_last_error("Out of memory while starting SCSI thread.");
+        set_last_errno("ISO file could not be opened for the SCSI worker");
         return -1;
     }
 
@@ -1862,11 +1867,11 @@ static int start_scsi_thread_if_needed(void)
             &g_scsi_thread,
             NULL,
             scsi_thread_main,
-            path_copy
+            iso_file
         ) != 0
     ) {
         g_scsi_running = 0;
-        free(path_copy);
+        fclose(iso_file);
         pthread_mutex_unlock(&g_lock);
         set_last_error("pthread_create() failed for SCSI thread.");
         return -1;
@@ -2008,31 +2013,75 @@ static void *event_thread_main(void *unused)
 /* Internal start / stop                                                      */
 /* ------------------------------------------------------------------------- */
 
-static int functionfs_start(const char *iso_path)
+static int functionfs_start_source(const char *iso_path, int iso_fd)
 {
     int ep0;
     struct stat file_info;
-    char *path_copy;
+    char *path_copy = NULL;
 
-    if (iso_path == NULL || iso_path[0] == '\0') {
-        set_last_error("ISO path is empty.");
-        return -1;
-    }
+    if (iso_fd >= 0) {
+        int status_flags;
+        int descriptor_flags;
 
-    if (
-        stat(iso_path, &file_info) != 0 ||
-        !S_ISREG(file_info.st_mode)
-    ) {
-        set_last_error("ISO path is not a regular file.");
-        return -1;
-    }
+        if (fstat(iso_fd, &file_info) != 0) {
+            set_last_errno("Could not inspect the ISO file descriptor");
+            close(iso_fd);
+            return -1;
+        }
 
-    if (access(iso_path, R_OK) != 0) {
-        set_last_errno("ISO file is not readable");
-        return -1;
+        if (!S_ISREG(file_info.st_mode)) {
+            set_last_error("ISO file descriptor is not a regular file.");
+            close(iso_fd);
+            return -1;
+        }
+
+        status_flags = fcntl(iso_fd, F_GETFL);
+        if (status_flags < 0) {
+            set_last_errno("Could not inspect ISO file descriptor flags");
+            close(iso_fd);
+            return -1;
+        }
+
+        if ((status_flags & O_ACCMODE) == O_WRONLY) {
+            set_last_error("ISO file descriptor is not readable.");
+            close(iso_fd);
+            return -1;
+        }
+
+        if (lseek(iso_fd, 0, SEEK_SET) < 0) {
+            set_last_errno("ISO file descriptor is not seekable");
+            close(iso_fd);
+            return -1;
+        }
+
+        descriptor_flags = fcntl(iso_fd, F_GETFD);
+        if (descriptor_flags >= 0) {
+            (void)fcntl(iso_fd, F_SETFD, descriptor_flags | FD_CLOEXEC);
+        }
+    } else {
+        if (iso_path == NULL || iso_path[0] == '\0') {
+            set_last_error("ISO path is empty.");
+            return -1;
+        }
+
+        if (
+            stat(iso_path, &file_info) != 0 ||
+            !S_ISREG(file_info.st_mode)
+        ) {
+            set_last_error("ISO path is not a regular file.");
+            return -1;
+        }
+
+        if (access(iso_path, R_OK) != 0) {
+            set_last_errno("ISO file is not readable");
+            return -1;
+        }
     }
 
     if (prepare_functionfs_mount() != 0) {
+        if (iso_fd >= 0) {
+            close(iso_fd);
+        }
         return -1;
     }
 
@@ -2040,6 +2089,9 @@ static int functionfs_start(const char *iso_path)
     if (g_running || g_event_thread_created) {
         pthread_mutex_unlock(&g_lock);
         set_last_error("FunctionFS backend is already running.");
+        if (iso_fd >= 0) {
+            close(iso_fd);
+        }
         return -1;
     }
     pthread_mutex_unlock(&g_lock);
@@ -2047,6 +2099,9 @@ static int functionfs_start(const char *iso_path)
     ep0 = open(EP0_PATH, O_RDWR | O_CLOEXEC);
     if (ep0 < 0) {
         set_last_errno("FunctionFS ep0 could not be opened");
+        if (iso_fd >= 0) {
+            close(iso_fd);
+        }
         return -1;
     }
 
@@ -2056,6 +2111,9 @@ static int functionfs_start(const char *iso_path)
     ) {
         set_last_errno("Could not write FunctionFS descriptors");
         close(ep0);
+        if (iso_fd >= 0) {
+            close(iso_fd);
+        }
         return -1;
     }
 
@@ -2065,14 +2123,19 @@ static int functionfs_start(const char *iso_path)
     ) {
         set_last_errno("Could not write FunctionFS strings");
         close(ep0);
+        if (iso_fd >= 0) {
+            close(iso_fd);
+        }
         return -1;
     }
 
-    path_copy = strdup(iso_path);
-    if (path_copy == NULL) {
-        close(ep0);
-        set_last_error("Out of memory while saving ISO path.");
-        return -1;
+    if (iso_path != NULL) {
+        path_copy = strdup(iso_path);
+        if (path_copy == NULL) {
+            close(ep0);
+            set_last_error("Out of memory while saving ISO path.");
+            return -1;
+        }
     }
 
     pthread_mutex_lock(&g_lock);
@@ -2083,6 +2146,7 @@ static int functionfs_start(const char *iso_path)
     g_ep_in = -1;
     g_ep_out = -1;
     g_iso_path = path_copy;
+    g_iso_fd = iso_fd;
     g_last_error[0] = '\0';
     sense_clear();
 
@@ -2097,10 +2161,14 @@ static int functionfs_start(const char *iso_path)
         g_running = 0;
         g_ep0 = -1;
         g_iso_path = NULL;
+        g_iso_fd = -1;
         pthread_mutex_unlock(&g_lock);
 
         close(ep0);
         free(path_copy);
+        if (iso_fd >= 0) {
+            close(iso_fd);
+        }
         set_last_error("pthread_create() failed for FunctionFS event thread.");
         return -1;
     }
@@ -2112,6 +2180,22 @@ static int functionfs_start(const char *iso_path)
     return 0;
 }
 
+static int functionfs_start(const char *iso_path)
+{
+    return functionfs_start_source(iso_path, -1);
+}
+
+/* Takes ownership of an fd returned by ParcelFileDescriptor.detachFd(). */
+static int functionfs_start_fd(int iso_fd)
+{
+    if (iso_fd < 0) {
+        set_last_error("ISO file descriptor is invalid.");
+        return -1;
+    }
+
+    return functionfs_start_source(NULL, iso_fd);
+}
+
 static int functionfs_stop(void)
 {
     pthread_t event_thread;
@@ -2119,6 +2203,7 @@ static int functionfs_stop(void)
     int join_event = 0;
     int join_scsi = 0;
     int ep0 = -1;
+    int iso_fd = -1;
     char *path = NULL;
 
     pthread_mutex_lock(&g_lock);
@@ -2126,7 +2211,9 @@ static int functionfs_stop(void)
     if (
         !g_running &&
         !g_event_thread_created &&
-        !g_scsi_thread_created
+        !g_scsi_thread_created &&
+        g_iso_fd < 0 &&
+        g_iso_path == NULL
     ) {
         pthread_mutex_unlock(&g_lock);
         return 0;
@@ -2173,6 +2260,8 @@ static int functionfs_stop(void)
 
     path = g_iso_path;
     g_iso_path = NULL;
+    iso_fd = g_iso_fd;
+    g_iso_fd = -1;
     g_running = 0;
     g_scsi_running = 0;
     g_stop_requested = 0;
@@ -2183,6 +2272,9 @@ static int functionfs_stop(void)
     pthread_mutex_unlock(&g_lock);
 
     free(path);
+    if (iso_fd >= 0) {
+        close(iso_fd);
+    }
 
     LOGI("FunctionFS backend stopped");
     return 0;
@@ -2238,6 +2330,22 @@ Java_com_werismoln_multibooter_FunctionFileSystem_startNative(
     (*env)->ReleaseStringUTFChars(env, isoPath, path);
 
     return result == 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_werismoln_multibooter_FunctionFileSystem_startNativeFd(
+    JNIEnv *env,
+    jclass clazz,
+    jint isoFd
+)
+{
+    (void)env;
+    (void)clazz;
+
+    set_last_error(NULL);
+
+    /* Takes ownership of a detached ParcelFileDescriptor descriptor. */
+    return functionfs_start_fd((int)isoFd) == 0 ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL

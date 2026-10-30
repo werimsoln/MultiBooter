@@ -22,6 +22,11 @@ package com.werismoln.multibooter;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.Uri;
+import android.os.ParcelFileDescriptor;
+import android.system.Os;
+import android.system.OsConstants;
+import android.system.StructStat;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -76,8 +81,13 @@ public final class FunctionFileSystem {
 
     private static native boolean prepareNative();
 
+    /*
+     * isoFd is a read-only descriptor of the ISO. Java closes its own copy as
+     * soon as this call returns, so native code must dup() it if it needs the
+     * ISO afterwards.
+     */
     private static native boolean startNative(
-        String isoPath
+        int isoFd
     );
 
     private static native boolean stopNative();
@@ -478,6 +488,24 @@ public final class FunctionFileSystem {
         String isoPath
     ) {
 
+        return start(
+            context,
+            isoPath,
+            null
+        );
+    }
+
+    /*
+     * isoUri may be null. When it is set, the ISO is opened through the
+     * ContentResolver and isoPath is only used as a label; otherwise isoPath
+     * is opened directly.
+     */
+    public static boolean start(
+        Context context,
+        String isoPath,
+        Uri isoUri
+    ) {
+
         javaLastError =
             "";
 
@@ -500,36 +528,133 @@ public final class FunctionFileSystem {
         isoPath =
             safe(isoPath).trim();
 
-        File iso;
+        ParcelFileDescriptor isoFd =
+            openIso(
+                context,
+                isoPath,
+                isoUri
+            );
+
+        if (isoFd == null) {
+
+            return false;
+        }
 
         try {
 
-            iso =
-                new File(
-                    isoPath
-                ).getCanonicalFile();
+            return startWithFd(
+                context,
+                isoPath,
+                isoFd
+            );
+
+        } finally {
+
+            try {
+                isoFd.close();
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    private static ParcelFileDescriptor openIso(
+        Context context,
+        String isoPath,
+        Uri isoUri
+    ) {
+
+        ParcelFileDescriptor fd =
+            null;
+
+        try {
+
+            if (isoUri != null) {
+
+                fd =
+                    context.getContentResolver()
+                        .openFileDescriptor(
+                            isoUri,
+                            "r"
+                        );
+
+            } else {
+
+                File iso =
+                    new File(
+                        isoPath
+                    ).getCanonicalFile();
+
+                if (
+                    !iso.isFile() ||
+                    !iso.canRead()
+                ) {
+
+                    javaLastError =
+                        "ISO file is not readable: " +
+                        iso.getAbsolutePath();
+
+                    return null;
+                }
+
+                fd =
+                    ParcelFileDescriptor.open(
+                        iso,
+                        ParcelFileDescriptor.MODE_READ_ONLY
+                    );
+            }
+
+            if (fd == null) {
+
+                javaLastError =
+                    "Could not open the ISO file.";
+
+                return null;
+            }
+
+            StructStat st =
+                Os.fstat(
+                    fd.getFileDescriptor()
+                );
+
+            if (
+                !OsConstants.S_ISREG(
+                    st.st_mode
+                )
+            ) {
+
+                fd.close();
+
+                javaLastError =
+                    "The selected ISO is not a regular file. Pick it from local storage.";
+
+                return null;
+            }
+
+            return fd;
 
         } catch (Throwable e) {
 
+            if (fd != null) {
+
+                try {
+                    fd.close();
+                } catch (Throwable ignored) {
+                }
+            }
+
             javaLastError =
-                "Could not resolve ISO path: " +
+                "Could not open the ISO file: " +
                 e;
 
-            return false;
+            return null;
         }
+    }
 
-        if (
-            !iso.exists() ||
-            !iso.isFile() ||
-            !iso.canRead()
-        ) {
-
-            javaLastError =
-                "ISO file is not readable: " +
-                iso.getAbsolutePath();
-
-            return false;
-        }
+    private static boolean startWithFd(
+        Context context,
+        String isoLabel,
+        ParcelFileDescriptor isoFd
+    ) {
 
         if (
             isRunningNativeSafe()
@@ -631,7 +756,7 @@ public final class FunctionFileSystem {
 
             if (
                 !startNative(
-                    iso.getAbsolutePath()
+                    isoFd.getFd()
                 )
             ) {
 
@@ -745,7 +870,7 @@ public final class FunctionFileSystem {
             context.getApplicationContext(),
             new SessionInfo(
                 true,
-                iso.getAbsolutePath(),
+                isoLabel,
                 probe.gadgetRoot,
                 probe.configPath,
                 function,
@@ -818,19 +943,14 @@ public final class FunctionFileSystem {
             return false;
         }
 
-        File iso =
-            new File(
-                isoPath
+        ParcelFileDescriptor isoFd =
+            openIso(
+                null,
+                isoPath.trim(),
+                null
             );
 
-        if (
-            !iso.isFile() ||
-            !iso.canRead()
-        ) {
-
-            javaLastError =
-                "ISO file is not readable: " +
-                isoPath;
+        if (isoFd == null) {
 
             return false;
         }
@@ -839,7 +959,7 @@ public final class FunctionFileSystem {
 
             boolean result =
                 startNative(
-                    iso.getAbsolutePath()
+                    isoFd.getFd()
                 );
 
             if (!result) {
@@ -862,6 +982,13 @@ public final class FunctionFileSystem {
                 e;
 
             return false;
+
+        } finally {
+
+            try {
+                isoFd.close();
+            } catch (Throwable ignored) {
+            }
         }
     }
 

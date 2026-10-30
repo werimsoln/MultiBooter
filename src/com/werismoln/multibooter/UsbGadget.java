@@ -309,18 +309,6 @@ public final class UsbGadget {
             return false;
         }
 
-        if (!image.exists() || !image.isFile()) {
-            lastError =
-                "ISO/IMG file does not exist: " + image.getAbsolutePath();
-            return false;
-        }
-
-        if (!image.canRead()) {
-            lastError =
-                "ISO/IMG is not readable by Android: " + image.getAbsolutePath();
-            return false;
-        }
-
         ProbeInfo probe = probe();
 
         if (
@@ -331,6 +319,23 @@ public final class UsbGadget {
             if (lastError.length() == 0) {
                 lastError = probe.message;
             }
+            return false;
+        }
+
+        /*
+         * Without all-files access the app process cannot see files picked
+         * through the document picker. The kernel opens the backing file as
+         * root anyway, so verify it as root instead.
+         */
+        CommandResult imageCheck = runRoot(
+            "test -f " + shell(image.getAbsolutePath()) +
+            " && test -r " + shell(image.getAbsolutePath())
+        );
+
+        if (imageCheck.exitCode != 0) {
+            lastError =
+                "ISO/IMG file does not exist or is not readable by root: " +
+                image.getAbsolutePath();
             return false;
         }
 

@@ -1,0 +1,13 @@
+--- TftpMode_3.java
++++ TftpMode_3.java
+@@ -158,8 +158,8 @@
+         File boot;
+ 
+         try {
+-            root = new File(tftpRootPath).getCanonicalFile();
+-            boot = new File(root, bootFile).getCanonicalFile();
++            root = new File(tftpRootPath).getAbsoluteFile();
++            boot = new File(root, bootFile).getAbsoluteFile();
+         } catch (IOException e) {
+             lastError = "Could not resolve TFTP paths: " + e;
+             return false;

@@ -438,7 +438,7 @@ public class GadgetActivity extends BaseActivity {
         ) {
 
             imageInfo.setText(
-                "File not found at this path."
+                "File is not visible to the app at this path.\nRoot will check it when you start."
             );
 
             return;
@@ -649,8 +649,12 @@ public class GadgetActivity extends BaseActivity {
                 image
             );
 
+        /*
+         * The file may not be visible to the app process without all-files
+         * access; UsbGadget verifies it as root when starting.
+         */
         if (
-            !file.isFile()
+            image.length() == 0
         ) {
 
             Toast.makeText(

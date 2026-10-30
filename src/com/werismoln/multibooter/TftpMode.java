@@ -200,7 +200,12 @@ public final class TftpMode {
             return false;
         }
 
-        if (!root.isDirectory()) {
+        /*
+         * dnsmasq runs as root, so check the TFTP tree as root too. The app
+         * process may not be able to see shared storage without all-files
+         * access.
+         */
+        if (runRoot("test -d " + shell(root.getAbsolutePath())).exitCode != 0) {
             lastError = "TFTP root does not exist: " + root;
             return false;
         }
@@ -213,7 +218,12 @@ public final class TftpMode {
             return false;
         }
 
-        if (!boot.isFile() || !boot.canRead()) {
+        if (
+            runRoot(
+                "test -f " + shell(boot.getAbsolutePath()) +
+                " && test -r " + shell(boot.getAbsolutePath())
+            ).exitCode != 0
+        ) {
             lastError = "Boot file does not exist or is not readable: " + boot;
             return false;
         }
