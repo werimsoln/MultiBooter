@@ -23,8 +23,12 @@ package com.werismoln.multibooter;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
+import android.provider.DocumentsContract;
+import android.provider.DocumentsContract.Document;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.MotionEvent;
@@ -38,6 +42,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -46,11 +53,15 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Locale;
 
 public class TftpActivity extends BaseActivity {
 
     private static final long STATUS_INTERVAL_MS = 2000L;
+    private static final int REQUEST_TFTP_TREE = 7302;
+    private static final String TREE_URI_KEY = "tftp_tree_uri";
 
     private final Handler handler =
         new Handler(Looper.getMainLooper());
@@ -60,6 +71,9 @@ public class TftpActivity extends BaseActivity {
 
     private Spinner interfaceSpinner;
     private EditText rootEdit;
+    private Uri selectedTreeUri;
+    private String selectedTreeLabel = "";
+    private String treeCopyError = "";
     private EditText bootEdit;
     private EditText serverIpEdit;
     private EditText dhcpStartEdit;
@@ -148,6 +162,8 @@ public class TftpActivity extends BaseActivity {
         Button createRoot =
             (Button) findViewById(R.id.tftp_create_root);
 
+        createRoot.setText("SELECT TFTP FOLDER");
+
         Button refresh =
             (Button) findViewById(R.id.tftp_refresh_interfaces);
 
@@ -179,7 +195,7 @@ public class TftpActivity extends BaseActivity {
         createRoot.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                createRootDirectory();
+                openTftpTreePicker();
             }
         });
 
@@ -199,18 +215,35 @@ public class TftpActivity extends BaseActivity {
 
         TftpMode.SessionInfo old = TftpMode.getLastSession(this);
 
-        File defaultRoot = new File(
-            Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS
-            ),
-            "tftp"
-        );
+        File defaultRoot = getExternalFilesDir("tftp");
+        if (defaultRoot == null) {
+            defaultRoot = new File(getFilesDir(), "tftp-root");
+        }
+
+        if (!defaultRoot.exists()) {
+            defaultRoot.mkdirs();
+        }
 
         rootEdit.setText(
             old.tftpRootPath.length() > 0
                 ? old.tftpRootPath
                 : defaultRoot.getAbsolutePath()
         );
+
+        String savedTree =
+            getPreferences(MODE_PRIVATE).getString(TREE_URI_KEY, "");
+
+        if (savedTree.length() > 0) {
+            try {
+                selectedTreeUri = Uri.parse(savedTree);
+                selectedTreeLabel =
+                    "SAF folder: " + getTreeDisplayName(selectedTreeUri);
+                rootEdit.setText(selectedTreeLabel);
+            } catch (Throwable ignored) {
+                selectedTreeUri = null;
+                selectedTreeLabel = "";
+            }
+        }
 
         bootEdit.setText(
             old.bootFile.length() > 0
@@ -324,40 +357,333 @@ public class TftpActivity extends BaseActivity {
         }
     }
 
-    private void createRootDirectory() {
-        String path = text(rootEdit);
+    private void openTftpTreePicker() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.addFlags(
+            Intent.FLAG_GRANT_READ_URI_PERMISSION |
+            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
+            Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+        );
 
-        if (path.length() == 0) {
-            Toast.makeText(this, "TFTP root path is empty.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        File dir = new File(path);
-
-        if (dir.isDirectory()) {
+        try {
+            startActivityForResult(intent, REQUEST_TFTP_TREE);
+        } catch (Throwable e) {
             Toast.makeText(
                 this,
-                "TFTP root already exists:\n" + dir.getAbsolutePath(),
+                "Could not open Android folder picker: " + e.getMessage(),
                 Toast.LENGTH_LONG
             ).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(
+        int requestCode,
+        int resultCode,
+        Intent data
+    ) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (
+            requestCode != REQUEST_TFTP_TREE ||
+            resultCode != RESULT_OK ||
+            data == null ||
+            data.getData() == null
+        ) {
             return;
         }
 
-        if (dir.exists()) {
-            Toast.makeText(this, "Path exists but is not a directory.", Toast.LENGTH_LONG).show();
-            return;
-        }
+        Uri tree = data.getData();
+        int flags = data.getFlags() &
+            (
+                Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            );
 
-        if (dir.mkdirs()) {
+        try {
+            if (
+                flags != 0 &&
+                (data.getFlags() & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) != 0
+            ) {
+                getContentResolver().takePersistableUriPermission(tree, flags);
+            }
+        } catch (Throwable e) {
             Toast.makeText(
                 this,
-                "Created:\n" + dir.getAbsolutePath() +
-                "\n\nCopy the PXE boot tree into this folder.",
+                "Folder access may need to be granted again: " + e.getMessage(),
                 Toast.LENGTH_LONG
             ).show();
-        } else {
-            Toast.makeText(this, "Could not create TFTP root.", Toast.LENGTH_LONG).show();
         }
+
+        selectedTreeUri = tree;
+        selectedTreeLabel = "SAF folder: " + getTreeDisplayName(tree);
+
+        getPreferences(MODE_PRIVATE)
+            .edit()
+            .putString(TREE_URI_KEY, tree.toString())
+            .apply();
+
+        rootEdit.setText(selectedTreeLabel);
+    }
+
+    private String getTreeDisplayName(Uri tree) {
+        if (tree == null) {
+            return "selected folder";
+        }
+
+        Cursor cursor = null;
+
+        try {
+            String documentId = DocumentsContract.getTreeDocumentId(tree);
+            Uri documentUri =
+                DocumentsContract.buildDocumentUriUsingTree(tree, documentId);
+
+            cursor = getContentResolver().query(
+                documentUri,
+                new String[] { Document.COLUMN_DISPLAY_NAME },
+                null,
+                null,
+                null
+            );
+
+            if (cursor != null && cursor.moveToFirst()) {
+                int index = cursor.getColumnIndex(Document.COLUMN_DISPLAY_NAME);
+
+                if (index >= 0 && !cursor.isNull(index)) {
+                    String name = cursor.getString(index);
+                    if (name != null && name.length() > 0) {
+                        return name;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+
+        String segment = tree.getLastPathSegment();
+        return segment == null || segment.length() == 0
+            ? "selected folder"
+            : segment;
+    }
+
+    private File stageSelectedTree(Uri tree) {
+        treeCopyError = "";
+
+        File directory = getExternalFilesDir("tftp");
+        if (directory == null) {
+            directory = new File(getFilesDir(), "tftp");
+        }
+
+        File target = new File(directory, "tftp-root-staged");
+
+        try {
+            deleteRecursively(target);
+
+            if (!target.mkdirs() && !target.isDirectory()) {
+                throw new IOException("Could not create the app-specific TFTP directory.");
+            }
+
+            String rootId = DocumentsContract.getTreeDocumentId(tree);
+            Set<String> visited = new HashSet<String>();
+            visited.add(rootId);
+            int[] copiedEntries = new int[] { 0 };
+
+            if (!copyTreeChildren(tree, rootId, target, visited, copiedEntries, 0)) {
+                throw new IOException(
+                    treeCopyError.length() == 0
+                        ? "Could not copy the selected TFTP folder."
+                        : treeCopyError
+                );
+            }
+
+            return target;
+
+        } catch (Throwable e) {
+            treeCopyError = "Could not stage selected SAF folder: " + e.getMessage();
+            deleteRecursively(target);
+            return null;
+        }
+    }
+
+    private boolean copyTreeChildren(
+        Uri tree,
+        String parentId,
+        File parent,
+        Set<String> visited,
+        int[] copiedEntries,
+        int depth
+    ) {
+        if (depth > 64 || copiedEntries[0] > 100000) {
+            treeCopyError = "The selected TFTP tree is too deep or contains too many entries.";
+            return false;
+        }
+
+        Cursor cursor = null;
+
+        try {
+            Uri childrenUri =
+                DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId);
+
+            cursor = getContentResolver().query(
+                childrenUri,
+                new String[] {
+                    Document.COLUMN_DOCUMENT_ID,
+                    Document.COLUMN_DISPLAY_NAME,
+                    Document.COLUMN_MIME_TYPE
+                },
+                null,
+                null,
+                null
+            );
+
+            if (cursor == null) {
+                treeCopyError = "The document provider returned no folder listing.";
+                return false;
+            }
+
+            int idColumn = cursor.getColumnIndex(Document.COLUMN_DOCUMENT_ID);
+            int nameColumn = cursor.getColumnIndex(Document.COLUMN_DISPLAY_NAME);
+            int mimeColumn = cursor.getColumnIndex(Document.COLUMN_MIME_TYPE);
+
+            if (idColumn < 0 || nameColumn < 0 || mimeColumn < 0) {
+                treeCopyError = "The document provider returned an incomplete folder listing.";
+                return false;
+            }
+
+            while (cursor.moveToNext()) {
+                String documentId = cursor.getString(idColumn);
+                String name = cursor.getString(nameColumn);
+                String mimeType = cursor.getString(mimeColumn);
+
+                if (documentId == null || !visited.add(documentId)) {
+                    continue;
+                }
+
+                if (name == null || name.length() == 0) {
+                    name = "document-" + copiedEntries[0];
+                }
+
+                name = name.replace('/', '_').replace('\\', '_');
+                if (".".equals(name) || "..".equals(name)) {
+                    name = "document-" + copiedEntries[0];
+                }
+
+                File destination =
+                    new File(parent, name).getCanonicalFile();
+
+                String parentPath = parent.getCanonicalPath();
+                if (!destination.getPath().startsWith(parentPath + File.separator)) {
+                    treeCopyError = "A document name escaped the destination directory.";
+                    return false;
+                }
+
+                if (destination.exists()) {
+                    treeCopyError = "Duplicate destination name: " + name;
+                    return false;
+                }
+
+                copiedEntries[0]++;
+
+                if (Document.MIME_TYPE_DIR.equals(mimeType)) {
+                    if (!destination.mkdirs() && !destination.isDirectory()) {
+                        treeCopyError = "Could not create directory: " + name;
+                        return false;
+                    }
+
+                    if (!copyTreeChildren(
+                        tree,
+                        documentId,
+                        destination,
+                        visited,
+                        copiedEntries,
+                        depth + 1
+                    )) {
+                        return false;
+                    }
+                } else {
+                    InputStream input = null;
+                    FileOutputStream output = null;
+
+                    try {
+                        Uri documentUri =
+                            DocumentsContract.buildDocumentUriUsingTree(tree, documentId);
+                        input = getContentResolver().openInputStream(documentUri);
+
+                        if (input == null) {
+                            throw new IOException("No input stream for " + name);
+                        }
+
+                        output = new FileOutputStream(destination, false);
+                        byte[] buffer = new byte[65536];
+                        int count;
+
+                        while ((count = input.read(buffer)) != -1) {
+                            output.write(buffer, 0, count);
+                        }
+
+                        output.flush();
+
+                    } catch (Throwable e) {
+                        treeCopyError =
+                            "Could not copy '" + name + "': " + e.getMessage();
+                        return false;
+
+                    } finally {
+                        if (input != null) {
+                            try {
+                                input.close();
+                            } catch (Throwable ignored) {
+                            }
+                        }
+
+                        if (output != null) {
+                            try {
+                                output.close();
+                            } catch (Throwable ignored) {
+                            }
+                        }
+                    }
+                }
+            }
+
+            return true;
+
+        } catch (Throwable e) {
+            treeCopyError = "Could not read selected folder: " + e.getMessage();
+            return false;
+
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+    }
+
+    private void deleteRecursively(File file) {
+        if (file == null || !file.exists()) {
+            return;
+        }
+
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+
+            if (children != null) {
+                for (File child : children) {
+                    deleteRecursively(child);
+                }
+            }
+        }
+
+        file.delete();
     }
 
     private void confirmStart() {
@@ -378,6 +704,12 @@ public class TftpActivity extends BaseActivity {
         }
 
         final String root = text(rootEdit);
+
+        final Uri treeUri =
+            selectedTreeUri != null && root.equals(selectedTreeLabel)
+                ? selectedTreeUri
+                : null;
+
         final String boot = text(bootEdit);
         final String server = text(serverIpEdit);
         final String start = text(dhcpStartEdit);
@@ -402,6 +734,7 @@ public class TftpActivity extends BaseActivity {
                         performStart(
                             selected.name,
                             root,
+                            treeUri,
                             boot,
                             server,
                             start,
@@ -416,6 +749,7 @@ public class TftpActivity extends BaseActivity {
     private void performStart(
         final String iface,
         final String root,
+        final Uri treeUri,
         final String boot,
         final String server,
         final String start,
@@ -428,12 +762,25 @@ public class TftpActivity extends BaseActivity {
             new Runnable() {
                 @Override
                 public void run() {
-                    boolean ok =
+                    String effectiveRoot = root;
+                    String preparationError = "";
+
+                    if (treeUri != null) {
+                        File stagedRoot = stageSelectedTree(treeUri);
+
+                        if (stagedRoot == null) {
+                            preparationError = treeCopyError;
+                        } else {
+                            effectiveRoot = stagedRoot.getAbsolutePath();
+                        }
+                    }
+
+                    boolean ok = preparationError.length() == 0 &&
                         TftpMode.hasRootAccess() &&
                         TftpMode.startPxe(
                             TftpActivity.this,
                             iface,
-                            root,
+                            effectiveRoot,
                             boot,
                             server,
                             start,
@@ -441,7 +788,9 @@ public class TftpActivity extends BaseActivity {
                         );
 
                     final boolean success = ok;
-                    final String error = TftpMode.getLastError();
+                    final String error = preparationError.length() > 0
+                        ? preparationError
+                        : TftpMode.getLastError();
 
                     runOnUiThread(
                         new Runnable() {

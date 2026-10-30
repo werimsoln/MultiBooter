@@ -81,14 +81,30 @@ public final class FunctionFileSystem {
 
     private static native boolean prepareNative();
 
-    /*
-     * isoFd is a read-only descriptor of the ISO. Java closes its own copy as
-     * soon as this call returns, so native code must dup() it if it needs the
-     * ISO afterwards.
-     */
-    private static native boolean startNative(
+    /* Native startNativeFd() takes ownership of a detached descriptor. */
+    private static native boolean startNativeFd(
         int isoFd
     );
+
+    private static boolean startNativeWithFd(
+        ParcelFileDescriptor descriptor
+    ) {
+        int detachedFd = -1;
+
+        try {
+            detachedFd = descriptor.detachFd();
+            return startNativeFd(detachedFd);
+        } catch (UnsatisfiedLinkError e) {
+            /* JNI was not entered; Java still owns the detached descriptor. */
+            if (detachedFd >= 0) {
+                try {
+                    ParcelFileDescriptor.adoptFd(detachedFd).close();
+                } catch (Throwable ignored) {
+                }
+            }
+            throw e;
+        }
+    }
 
     private static native boolean stopNative();
 
@@ -582,20 +598,12 @@ public final class FunctionFileSystem {
                 File iso =
                     new File(
                         isoPath
-                    ).getCanonicalFile();
+                    ).getAbsoluteFile();
 
-                if (
-                    !iso.isFile() ||
-                    !iso.canRead()
-                ) {
-
-                    javaLastError =
-                        "ISO file is not readable: " +
-                        iso.getAbsolutePath();
-
-                    return null;
-                }
-
+                /*
+                 * Opening the descriptor checks access. fstat() below verifies
+                 * that the selected object is a regular file.
+                 */
                 fd =
                     ParcelFileDescriptor.open(
                         iso,
@@ -755,9 +763,7 @@ public final class FunctionFileSystem {
         try {
 
             if (
-                !startNative(
-                    isoFd.getFd()
-                )
+                !startNativeWithFd(isoFd)
             ) {
 
                 javaLastError =
@@ -958,9 +964,7 @@ public final class FunctionFileSystem {
         try {
 
             boolean result =
-                startNative(
-                    isoFd.getFd()
-                );
+                startNativeWithFd(isoFd);
 
             if (!result) {
 

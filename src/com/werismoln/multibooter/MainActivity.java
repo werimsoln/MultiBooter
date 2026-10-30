@@ -458,29 +458,13 @@ public class MainActivity extends BaseActivity {
             );
         }
 
-        /*
-         * Storage butonu.
-         */
-        if (isStorageGranted) {
-
-            btngrant2.setText("GRANTED");
-            btngrant2.setBackgroundTintList(
-                ColorStateList.valueOf(
-                    Color.parseColor("#4CAF50")
-                )
-            );
-            btngrant2.setEnabled(false);
-
-        } else {
-
-            btngrant2.setText("ALLOW STORAGE ACCESS");
-            btngrant2.setBackgroundTintList(
-                ColorStateList.valueOf(
-                    Color.parseColor("#2563EB")
-                )
-            );
-            btngrant2.setEnabled(true);
-        }
+        /* SAF grants access per selected document or folder. */
+        isStorageGranted = true;
+        btngrant2.setText("NOT REQUIRED");
+        btngrant2.setBackgroundTintList(
+            ColorStateList.valueOf(Color.parseColor("#757575"))
+        );
+        btngrant2.setEnabled(false);
 
         /*
          * Notification butonu.
@@ -649,67 +633,13 @@ public class MainActivity extends BaseActivity {
     }
 
     private void requestStoragePermission() {
-
-        if (hasStoragePermission()) {
-            return;
-        }
-
-        /*
-         * Android 11 ve üzeri:
-         * MANAGE_EXTERNAL_STORAGE ayarı.
-         */
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-
-            try {
-
-                Intent intent = new Intent(
-                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
-                );
-
-                intent.setData(
-                    Uri.parse(
-                        "package:" + getPackageName()
-                    )
-                );
-
-                startActivity(intent);
-
-            } catch (Exception e) {
-
-                Intent intent = new Intent(
-                    Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION
-                );
-
-                startActivity(intent);
-            }
-
-        } else {
-
-            /*
-             * Android 10 ve altı:
-             * normal runtime storage izni.
-             */
-            requestPermissions(
-                new String[] {
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE
-                },
-                REQUEST_STORAGE_PERMISSION
-            );
-        }
+        isStorageGranted = true;
+        updateGrantButtons();
+        updateUI(viewflipper.getDisplayedChild(), false);
     }
 
     private boolean hasStoragePermission() {
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-
-            return Environment.isExternalStorageManager();
-
-        } else {
-
-            return checkSelfPermission(
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            ) == PackageManager.PERMISSION_GRANTED;
-        }
+        return true;
     }
 
     private void requestNotificationPermission() {

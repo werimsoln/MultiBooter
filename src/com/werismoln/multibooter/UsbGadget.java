@@ -22,10 +22,14 @@ package com.werismoln.multibooter;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.Uri;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
+import java.io.InputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 
 /**
  * ConfigFS Mass-Storage helper.
@@ -92,6 +96,7 @@ public final class UsbGadget {
 
         public final boolean active;
         public final String imagePath;
+        public final boolean stagedImage;
         public final boolean cdRom;
         public final boolean readOnly;
         public final String gadgetRoot;
@@ -104,6 +109,7 @@ public final class UsbGadget {
         SessionInfo(
             boolean active,
             String imagePath,
+            boolean stagedImage,
             boolean cdRom,
             boolean readOnly,
             String gadgetRoot,
@@ -115,6 +121,7 @@ public final class UsbGadget {
         ) {
             this.active = active;
             this.imagePath = safe(imagePath);
+            this.stagedImage = stagedImage;
             this.cdRom = cdRom;
             this.readOnly = readOnly;
             this.gadgetRoot = safe(gadgetRoot);
@@ -285,6 +292,69 @@ public final class UsbGadget {
         boolean asCdRom,
         boolean readOnly
     ) {
+        return enableMassStorageFile(
+            context,
+            imagePath,
+            false,
+            asCdRom,
+            readOnly
+        );
+    }
+
+    public static boolean enableMassStorage(
+        Context context,
+        String imageLabel,
+        Uri imageUri,
+        boolean asCdRom,
+        boolean readOnly
+    ) {
+        if (imageUri == null) {
+            return enableMassStorageFile(
+                context,
+                imageLabel,
+                false,
+                asCdRom,
+                readOnly
+            );
+        }
+
+        if (context == null) {
+            lastError = "context == null";
+            return false;
+        }
+
+        if (hasSavedActiveSession(context)) {
+            lastError = "Stop the current USB Gadget session before selecting another backing file.";
+            return false;
+        }
+
+        File staged = copyDocumentToBackingFile(context, imageUri);
+        if (staged == null) {
+            return false;
+        }
+
+        boolean enabled = enableMassStorageFile(
+            context,
+            staged.getAbsolutePath(),
+            true,
+            asCdRom,
+            readOnly
+        );
+
+        if (!enabled) {
+            staged.delete();
+        }
+
+        return enabled;
+    }
+
+    private static boolean enableMassStorageFile(
+        Context context,
+        String imagePath,
+        boolean stagedImage,
+        boolean asCdRom,
+        boolean readOnly
+    ) {
 
         lastError = "";
 
@@ -303,7 +373,7 @@ public final class UsbGadget {
         final File image;
 
         try {
-            image = new File(imagePath).getCanonicalFile();
+            image = new File(imagePath).getAbsoluteFile();
         } catch (Throwable e) {
             lastError = "Could not resolve image path: " + e;
             return false;
@@ -460,6 +530,7 @@ public final class UsbGadget {
             new SessionInfo(
                 true,
                 image.getAbsolutePath(),
+                stagedImage,
                 asCdRom,
                 effectiveReadOnly,
                 gadget,
@@ -571,6 +642,14 @@ public final class UsbGadget {
         }
 
         clearSession(context.getApplicationContext());
+
+        if (session.stagedImage) {
+            File stagedImage = new File(session.imagePath);
+            if (stagedImage.exists()) {
+                stagedImage.delete();
+            }
+        }
+
         lastError = "";
         return true;
     }
@@ -614,6 +693,7 @@ public final class UsbGadget {
                 false,
                 "",
                 false,
+                false,
                 true,
                 "",
                 "",
@@ -631,6 +711,7 @@ public final class UsbGadget {
         return new SessionInfo(
             prefs.getBoolean("active", false),
             prefs.getString("image", ""),
+            prefs.getBoolean("staged_image", false),
             prefs.getBoolean("cdrom", false),
             prefs.getBoolean("readonly", true),
             prefs.getString("gadget", ""),
@@ -647,6 +728,7 @@ public final class UsbGadget {
             .edit()
             .putBoolean("active", session.active)
             .putString("image", session.imagePath)
+            .putBoolean("staged_image", session.stagedImage)
             .putBoolean("cdrom", session.cdRom)
             .putBoolean("readonly", session.readOnly)
             .putString("gadget", session.gadgetRoot)
@@ -663,6 +745,90 @@ public final class UsbGadget {
             .edit()
             .clear()
             .apply();
+    }
+
+    private static File copyDocumentToBackingFile(
+        Context context,
+        Uri uri
+    ) {
+        InputStream input = null;
+        FileOutputStream output = null;
+        File temporary = null;
+        File target = null;
+
+        try {
+            File directory = context.getExternalFilesDir("backing");
+            if (directory == null) {
+                directory = new File(context.getFilesDir(), "backing");
+            }
+
+            if (!directory.exists() && !directory.mkdirs()) {
+                throw new IOException("Could not create app-specific backing directory.");
+            }
+
+            String suffix = Long.toString(System.nanoTime());
+            temporary = new File(directory, "backing-" + suffix + ".part");
+            target = new File(directory, "backing-" + suffix + ".img");
+
+            input = context.getContentResolver().openInputStream(uri);
+            if (input == null) {
+                throw new IOException("ContentResolver returned no input stream.");
+            }
+
+            output = new FileOutputStream(temporary, false);
+            byte[] buffer = new byte[65536];
+            long copied = 0L;
+            int count;
+
+            while ((count = input.read(buffer)) != -1) {
+                output.write(buffer, 0, count);
+                copied += count;
+            }
+
+            output.flush();
+            output.close();
+            output = null;
+            input.close();
+            input = null;
+
+            if (copied <= 0L) {
+                throw new IOException("The selected backing file is empty.");
+            }
+
+            if (!temporary.renameTo(target)) {
+                throw new IOException("Could not finalize the staged backing file.");
+            }
+
+            lastError = "";
+            return target;
+
+        } catch (Throwable e) {
+            lastError = "Could not copy SAF backing file into app storage: " + e;
+
+            if (temporary != null) {
+                temporary.delete();
+            }
+            if (target != null) {
+                target.delete();
+            }
+
+            return null;
+
+        } finally {
+            if (input != null) {
+                try {
+                    input.close();
+                } catch (Throwable ignored) {
+                }
+            }
+
+            if (output != null) {
+                try {
+                    output.close();
+                } catch (Throwable ignored) {
+                }
+            }
+        }
     }
 
     /**

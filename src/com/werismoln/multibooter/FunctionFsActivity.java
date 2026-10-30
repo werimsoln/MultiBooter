@@ -31,7 +31,6 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.DocumentsContract;
-import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.view.MotionEvent;
 import android.view.View;
@@ -108,6 +107,21 @@ public class FunctionFsActivity extends BaseActivity {
             savedInstanceState
         );
 
+        if (savedInstanceState != null) {
+            String savedUri =
+                savedInstanceState.getString("selected_iso_uri", "");
+            isoUriLabel =
+                savedInstanceState.getString("selected_iso_label", "");
+
+            if (savedUri.length() > 0) {
+                try {
+                    isoUri = Uri.parse(savedUri);
+                } catch (Throwable ignored) {
+                    isoUri = null;
+                }
+            }
+        }
+
         if (
             FunctionFileSystem.hasSavedActiveSession(
                 this
@@ -119,6 +133,23 @@ public class FunctionFsActivity extends BaseActivity {
         } else {
 
             showSetupPage();
+
+            if (isoUri != null && isoPathEdit != null) {
+                isoPathEdit.setText(isoUriLabel);
+                updateIsoInfo(isoUriLabel);
+            }
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(
+        Bundle outState
+    ) {
+        super.onSaveInstanceState(outState);
+
+        if (isoUri != null) {
+            outState.putString("selected_iso_uri", isoUri.toString());
+            outState.putString("selected_iso_label", isoUriLabel);
         }
     }
 
@@ -375,13 +406,21 @@ public class FunctionFsActivity extends BaseActivity {
 
             int flags =
                 data.getFlags() &
-                Intent.FLAG_GRANT_READ_URI_PERMISSION;
-
-            getContentResolver()
-                .takePersistableUriPermission(
-                    uri,
-                    flags
+                (
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 );
+
+            if (
+                flags != 0 &&
+                (data.getFlags() & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) != 0
+            ) {
+                getContentResolver()
+                    .takePersistableUriPermission(
+                        uri,
+                        flags
+                    );
+            }
 
         } catch (Throwable ignored) {
         }
@@ -1318,143 +1357,37 @@ public class FunctionFsActivity extends BaseActivity {
         );
     }
 
-    private String resolveLocalPath(
-        Uri uri
-    ) {
+    private String resolveLocalPath(Uri uri) {
+        if (uri == null) return "";
 
-        if (uri == null) {
-            return "";
+        if ("file".equalsIgnoreCase(uri.getScheme())) {
+            String path = uri.getPath();
+            return path == null ? "" : path;
         }
 
-        if (
-            "file".equalsIgnoreCase(
-                uri.getScheme()
-            )
-        ) {
-
-            String path =
-                uri.getPath();
-
-            return
-                path == null
-                    ? ""
-                    : path;
-        }
-
-        if (
-            "com.android.externalstorage.documents".equals(
-                uri.getAuthority()
-            )
-        ) {
-
+        if ("com.android.externalstorage.documents".equals(uri.getAuthority())) {
             try {
+                String documentId = DocumentsContract.getDocumentId(uri);
+                String[] split = documentId.split(":", 2);
 
-                String documentId =
-                    DocumentsContract.getDocumentId(
-                        uri
-                    );
+                if (split.length == 2) {
+                    String volume = split[0];
+                    String relative = split[1];
 
-                String[] split =
-                    documentId.split(
-                        ":",
-                        2
-                    );
-
-                if (
-                    split.length ==
-                    2
-                ) {
-
-                    String volume =
-                        split[0];
-
-                    String relative =
-                        split[1];
-
-                    if (
-                        "primary".equalsIgnoreCase(
-                            volume
-                        )
-                    ) {
-
+                    if ("primary".equalsIgnoreCase(volume)) {
                         return new File(
                             Environment.getExternalStorageDirectory(),
                             relative
                         ).getAbsolutePath();
                     }
 
-                    return new File(
-                        "/storage/" +
-                        volume,
-                        relative
-                    ).getAbsolutePath();
+                    return new File("/storage/" + volume, relative).getAbsolutePath();
                 }
-
             } catch (Throwable ignored) {
             }
         }
 
-        Cursor cursor =
-            null;
-
-        try {
-
-            cursor =
-                getContentResolver()
-                    .query(
-                        uri,
-                        new String[] {
-                            MediaStore.MediaColumns.DATA
-                        },
-                        null,
-                        null,
-                        null
-                    );
-
-            if (
-                cursor != null &&
-                cursor.moveToFirst()
-            ) {
-
-                int index =
-                    cursor.getColumnIndex(
-                        MediaStore.MediaColumns.DATA
-                    );
-
-                if (
-                    index >= 0 &&
-                    !cursor.isNull(
-                        index
-                    )
-                ) {
-
-                    String path =
-                        cursor.getString(
-                            index
-                        );
-
-                    if (
-                        path != null
-                    ) {
-
-                        return path;
-                    }
-                }
-            }
-
-        } catch (Throwable ignored) {
-
-        } finally {
-
-            if (cursor != null) {
-
-                try {
-                    cursor.close();
-                } catch (Throwable ignored) {
-                }
-            }
-        }
-
+        /* A SAF provider does not have to expose a filesystem path. */
         return "";
     }
 

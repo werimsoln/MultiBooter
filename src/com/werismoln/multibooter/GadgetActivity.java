@@ -29,7 +29,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.DocumentsContract;
-import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
@@ -50,6 +50,8 @@ public class GadgetActivity extends BaseActivity {
         7301;
 
     private EditText imagePathEdit;
+    private Uri selectedImageUri;
+    private String selectedImageLabel = "";
     private TextView imageInfo;
     private TextView supportStatus;
     private RadioGroup modeGroup;
@@ -76,6 +78,21 @@ public class GadgetActivity extends BaseActivity {
             savedInstanceState
         );
 
+        if (savedInstanceState != null) {
+            String savedUri =
+                savedInstanceState.getString("gadget_image_uri", "");
+            selectedImageLabel =
+                savedInstanceState.getString("gadget_image_label", "");
+
+            if (savedUri.length() > 0) {
+                try {
+                    selectedImageUri = Uri.parse(savedUri);
+                } catch (Throwable ignored) {
+                    selectedImageUri = null;
+                }
+            }
+        }
+
         if (
             UsbGadget.hasSavedActiveSession(
                 this
@@ -87,6 +104,23 @@ public class GadgetActivity extends BaseActivity {
         } else {
 
             showSetupPage();
+
+            if (selectedImageUri != null && imagePathEdit != null) {
+                imagePathEdit.setText(selectedImageLabel);
+                updateImageInfo(selectedImageLabel);
+            }
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(
+        Bundle outState
+    ) {
+        super.onSaveInstanceState(outState);
+
+        if (selectedImageUri != null) {
+            outState.putString("gadget_image_uri", selectedImageUri.toString());
+            outState.putString("gadget_image_label", selectedImageLabel);
         }
     }
 
@@ -358,47 +392,39 @@ public class GadgetActivity extends BaseActivity {
 
             int flags =
                 data.getFlags() &
-                Intent.FLAG_GRANT_READ_URI_PERMISSION;
-
-            getContentResolver()
-                .takePersistableUriPermission(
-                    uri,
-                    flags
+                (
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 );
+
+            if (
+                flags != 0 &&
+                (data.getFlags() & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) != 0
+            ) {
+                getContentResolver()
+                    .takePersistableUriPermission(
+                        uri,
+                        flags
+                    );
+            }
 
         } catch (Throwable ignored) {
         }
 
-        String path =
-            resolveLocalPath(
-                uri
-            );
+        String path = resolveLocalPath(uri);
 
-        if (
-            path.length() == 0
-        ) {
-
-            new AlertDialog.Builder(
-                this
-            )
-                .setTitle(
-                    "A real file path is required"
-                )
-                .setMessage(
-                    "ConfigFS Mass Storage cannot use a content:// URI as its backing file. Select an ISO/IMG stored in shared/internal storage, or enter its absolute path manually."
-                )
-                .setPositiveButton(
-                    "OK",
-                    null
-                )
-                .show();
-
-            return;
+        if (path.length() == 0) {
+            selectedImageUri = uri;
+            path = getDocumentDisplayName(uri);
+            if (path.length() == 0) {
+                path = uri.toString();
+            }
+        } else {
+            selectedImageUri = null;
         }
 
-        imagePathEdit.setText(
-            path
-        );
+        selectedImageLabel = path;
+        imagePathEdit.setText(path);
 
         updateImageInfo(
             path
@@ -425,6 +451,16 @@ public class GadgetActivity extends BaseActivity {
                 "No backing image selected."
             );
 
+            return;
+        }
+
+        if (
+            selectedImageUri != null &&
+            path.trim().equals(selectedImageLabel)
+        ) {
+            imageInfo.setText(
+                "SAF document selected. It will be copied to app-specific storage for USB Gadget."
+            );
             return;
         }
 
@@ -644,15 +680,12 @@ public class GadgetActivity extends BaseActivity {
             image
         );
 
-        File file =
-            new File(
-                image
-            );
+        final Uri pickedUri =
+            selectedImageUri != null &&
+            image.equals(selectedImageLabel)
+                ? selectedImageUri
+                : null;
 
-        /*
-         * The file may not be visible to the app process without all-files
-         * access; UsbGadget verifies it as root when starting.
-         */
         if (
             image.length() == 0
         ) {
@@ -686,7 +719,7 @@ public class GadgetActivity extends BaseActivity {
             )
             .setMessage(
                 "Backing file:\n" +
-                file.getAbsolutePath() +
+                image +
                 "\n\nMode: " +
                 mode +
                 "\nRead-only: " +
@@ -713,6 +746,7 @@ public class GadgetActivity extends BaseActivity {
 
                         performStart(
                             image,
+                            pickedUri,
                             cdrom,
                             ro
                         );
@@ -724,6 +758,7 @@ public class GadgetActivity extends BaseActivity {
 
     private void performStart(
         final String image,
+        final Uri imageUri,
         final boolean cdrom,
         final boolean ro
     ) {
@@ -745,6 +780,7 @@ public class GadgetActivity extends BaseActivity {
                         UsbGadget.enableMassStorage(
                             GadgetActivity.this,
                             image,
+                            imageUri,
                             cdrom,
                             ro
                         );
@@ -1138,136 +1174,62 @@ public class GadgetActivity extends BaseActivity {
         }
     }
 
-    private String resolveLocalPath(
-        Uri uri
-    ) {
+    private String resolveLocalPath(Uri uri) {
+        if (uri == null) return "";
 
-        if (uri == null) {
-            return "";
+        if ("file".equalsIgnoreCase(uri.getScheme())) {
+            String path = uri.getPath();
+            return path == null ? "" : path;
         }
 
-        if (
-            "file".equalsIgnoreCase(
-                uri.getScheme()
-            )
-        ) {
-
-            String path =
-                uri.getPath();
-
-            return
-                path == null
-                    ? ""
-                    : path;
-        }
-
-        if (
-            "com.android.externalstorage.documents".equals(
-                uri.getAuthority()
-            )
-        ) {
-
+        if ("com.android.externalstorage.documents".equals(uri.getAuthority())) {
             try {
+                String documentId = DocumentsContract.getDocumentId(uri);
+                String[] split = documentId.split(":", 2);
 
-                String documentId =
-                    DocumentsContract.getDocumentId(
-                        uri
-                    );
+                if (split.length == 2) {
+                    String volume = split[0];
+                    String relative = split[1];
 
-                String[] split =
-                    documentId.split(
-                        ":",
-                        2
-                    );
-
-                if (
-                    split.length ==
-                    2
-                ) {
-
-                    String volume =
-                        split[0];
-
-                    String relative =
-                        split[1];
-
-                    if (
-                        "primary".equalsIgnoreCase(
-                            volume
-                        )
-                    ) {
-
+                    if ("primary".equalsIgnoreCase(volume)) {
                         return new File(
                             Environment.getExternalStorageDirectory(),
                             relative
                         ).getAbsolutePath();
                     }
 
-                    return new File(
-                        "/storage/" +
-                        volume,
-                        relative
-                    ).getAbsolutePath();
+                    return new File("/storage/" + volume, relative).getAbsolutePath();
                 }
-
             } catch (Throwable ignored) {
             }
         }
 
-        Cursor cursor =
-            null;
+        /* Non-filesystem SAF providers are copied through ContentResolver. */
+        return "";
+    }
+
+    private String getDocumentDisplayName(Uri uri) {
+        Cursor cursor = null;
 
         try {
+            cursor = getContentResolver().query(
+                uri,
+                new String[] { OpenableColumns.DISPLAY_NAME },
+                null,
+                null,
+                null
+            );
 
-            cursor =
-                getContentResolver()
-                    .query(
-                        uri,
-                        new String[] {
-                            MediaStore.MediaColumns.DATA
-                        },
-                        null,
-                        null,
-                        null
-                    );
-
-            if (
-                cursor != null &&
-                cursor.moveToFirst()
-            ) {
-
-                int index =
-                    cursor.getColumnIndex(
-                        MediaStore.MediaColumns.DATA
-                    );
-
-                if (
-                    index >= 0 &&
-                    !cursor.isNull(
-                        index
-                    )
-                ) {
-
-                    String path =
-                        cursor.getString(
-                            index
-                        );
-
-                    if (
-                        path != null
-                    ) {
-
-                        return path;
-                    }
+            if (cursor != null && cursor.moveToFirst()) {
+                int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (index >= 0 && !cursor.isNull(index)) {
+                    String name = cursor.getString(index);
+                    return name == null ? "" : name;
                 }
             }
-
         } catch (Throwable ignored) {
-
         } finally {
-
             if (cursor != null) {
-
                 try {
                     cursor.close();
                 } catch (Throwable ignored) {
