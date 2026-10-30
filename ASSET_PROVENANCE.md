@@ -628,7 +628,7 @@ Ventoy@7cbdc5cf69935bcf1f085ae67f40e70ea7e74bae
 The corresponding MultiBooter F-Droid build source revision is:
 
 ```text
-868d21131f2f6a49912eb3961ce9b05006982c8f
+5a4a0fb1b38fab8e92d8a94a04c10052056c3513
 ```
 
 The build process does not download Ventoy executable or boot components at
@@ -862,7 +862,7 @@ For the current F-Droid release build, the MultiBooter source revision
 specified by the metadata is:
 
 ```text
-868d21131f2f6a49912eb3961ce9b05006982c8f
+5a4a0fb1b38fab8e92d8a94a04c10052056c3513
 ```
 
 The provenance chain for the current Ventoy integration is:
@@ -897,7 +897,7 @@ Ventoy v1.1.17
     |
     +-- MultiBooter F-Droid build source
     |   commit:
-    |   868d21131f2f6a49912eb3961ce9b05006982c8f
+    |   5a4a0fb1b38fab8e92d8a94a04c10052056c3513
     |
     +-- pinned Ventoy source rebuild
            |
