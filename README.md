@@ -1,5 +1,7 @@
 # MultiBooter
 
+[![Get it on F-Droid](https://fdroid.gitlab.io/artwork/badge/get-it-on.png)](https://f-droid.org/packages/com.werismoln.multibooter/)
+
 MultiBooter is a free and open-source Android application for creating bootable
 USB media and providing low-level boot and USB workflows directly from an
 Android device.

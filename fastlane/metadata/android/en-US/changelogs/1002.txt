@@ -1,0 +1,4 @@
+- Improved storage access with Android's Storage Access Framework (SAF).
+- Added support for selecting files and directories through the system file picker.
+- Improved compatibility with modern Android storage restrictions.
+- Updated project documentation.
