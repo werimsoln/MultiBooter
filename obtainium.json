@@ -1,0 +1,13 @@
+[
+  {
+    "url": "https://github.com/werimsoln/MultiBooter",
+    "id": "https://github.com/werimsoln/MultiBooter",
+    "name": "MultiBooter",
+    "author": "werimsoln",
+    "additionalSettings": {
+      "imageMatchReg": ".*\\.apk$",
+      "includePrereleases": false,
+      "trackOnly": false
+    }
+  }
+]
