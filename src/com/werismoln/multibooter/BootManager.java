@@ -122,6 +122,13 @@ public class BootManager extends BaseActivity {
         } else {
             closeDrawerImmediately();
         }
+
+        /*
+         * Re-check root every time the boot options screen is entered
+         * (app start and the setup -> boot options transition). The saved
+         * flag is only used for the first paint of the cards.
+         */
+        checkRootInBackground();
     }
 
     private void bindViews() {
@@ -171,18 +178,7 @@ public class BootManager extends BaseActivity {
         enableCard(cardVentoy);
         enableCard(cardUsbWriter);
 
-        if (isRootGranted) {
-
-            enableCard(cardGadget);
-            enableCard(cardTftp);
-            enableCard(cardFunctionFs);
-
-        } else {
-
-            disableRootCard(cardGadget);
-            disableRootCard(cardTftp);
-            disableRootCard(cardFunctionFs);
-        }
+        applyRootCardState();
 
         resetCardImmediately(cardVentoy);
         resetCardImmediately(cardUsbWriter);
@@ -216,7 +212,88 @@ public class BootManager extends BaseActivity {
         );
     }
 
+    private void applyRootCardState() {
+
+        if (isRootGranted) {
+
+            enableCard(cardGadget);
+            enableCard(cardTftp);
+            enableCard(cardFunctionFs);
+
+        } else {
+
+            disableRootCard(cardGadget);
+            disableRootCard(cardTftp);
+            disableRootCard(cardFunctionFs);
+        }
+    }
+
+    private boolean isRootBoot(int boot) {
+
+        return
+            boot == BOOT_GADGET ||
+            boot == BOOT_TFTP ||
+            boot == BOOT_FUNCTIONFS;
+    }
+
+    private void checkRootInBackground() {
+
+        RootHelper.check(
+            this,
+            new RootHelper.Callback() {
+
+                @Override
+                public void onRootChecked(int result) {
+
+                    if (result == RootHelper.RESULT_UNKNOWN) {
+                        // Prompt unanswered or check interrupted: keep the
+                        // current state instead of guessing.
+                        return;
+                    }
+
+                    boolean granted =
+                        result == RootHelper.RESULT_GRANTED;
+
+                    if (granted == isRootGranted) {
+                        return;
+                    }
+
+                    isRootGranted = granted;
+
+                    applyRootCardState();
+
+                    if (!granted) {
+
+                        if (isRootBoot(selectedBoot)) {
+
+                            selectedBoot = BOOT_NONE;
+
+                            resetCard(cardVentoy);
+                            resetCard(cardUsbWriter);
+                            resetCard(cardGadget);
+                            resetCard(cardTftp);
+                            resetCard(cardFunctionFs);
+
+                            updateContinueButton();
+                        }
+
+                        Toast.makeText(
+                            BootManager.this,
+                            "Root access is not available. Root-only modes are disabled.",
+                            Toast.LENGTH_LONG
+                        ).show();
+                    }
+                }
+            }
+        );
+    }
+
+    private static final String ROOT_LOCKED_TAG = "root-locked";
+
     private void enableCard(View view) {
+
+        view.setTag(null);
+
 
         view.setEnabled(true);
         view.setClickable(true);
@@ -224,6 +301,9 @@ public class BootManager extends BaseActivity {
     }
 
     private void disableRootCard(View view) {
+
+        view.setTag(ROOT_LOCKED_TAG);
+
 
         view.setEnabled(false);
         view.setClickable(false);
@@ -273,7 +353,7 @@ public class BootManager extends BaseActivity {
                 @Override
                 public void onClick(View v) {
 
-                closeDrawer();
+                closeDrawerImmediately();
 
                 Intent settingsIntent =
                 new Intent(
@@ -294,7 +374,7 @@ public class BootManager extends BaseActivity {
                 @Override
                 public void onClick(View v) {
 
-                    closeDrawer();
+                    closeDrawerImmediately();
 
                     Intent aboutIntent =
                     new Intent(
@@ -315,7 +395,7 @@ public class BootManager extends BaseActivity {
                 @Override
                 public void onClick(View v) {
 
-                    closeDrawer();
+                    closeDrawerImmediately();
 
                     Intent intent =
                         new Intent(
@@ -408,6 +488,21 @@ public class BootManager extends BaseActivity {
                 ) {
 
                     if (!view.isEnabled()) {
+
+                        // Tell the user why the card is locked instead of
+                        // ignoring the tap.
+                        if (
+                            event.getAction() == MotionEvent.ACTION_UP &&
+                            ROOT_LOCKED_TAG.equals(view.getTag())
+                        ) {
+
+                            Toast.makeText(
+                                BootManager.this,
+                                "This mode needs root access. You can grant it in Settings.",
+                                Toast.LENGTH_LONG
+                            ).show();
+                        }
+
                         return true;
                     }
 
@@ -867,6 +962,21 @@ public class BootManager extends BaseActivity {
         sideDrawer.animate()
             .translationX(-drawerWidth)
             .setDuration(250)
+            .withEndAction(
+                new Runnable() {
+
+                    @Override
+                    public void run() {
+
+                        if (!isDrawerOpen) {
+
+                            sideDrawer.setVisibility(
+                                View.GONE
+                            );
+                        }
+                    }
+                }
+            )
             .start();
 
         drawerOverlay.animate()
@@ -922,6 +1032,31 @@ public class BootManager extends BaseActivity {
         isDrawerOpen = false;
     }
 
+
+    @Override
+    protected void onStop() {
+
+        super.onStop();
+
+        /*
+         * If the drawer was still sliding out when another activity covered
+         * this one, the animation would resume (and the drawer would flash
+         * on screen) when the user comes back. Finish the close right away.
+         */
+        if (!isDrawerOpen) {
+            closeDrawerImmediately();
+        }
+    }
+
+    @Override
+    protected void onStart() {
+
+        super.onStart();
+
+        if (!isDrawerOpen) {
+            closeDrawerImmediately();
+        }
+    }
 
     @Override
     public void onBackPressed() {

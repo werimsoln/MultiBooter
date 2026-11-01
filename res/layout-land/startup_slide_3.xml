@@ -13,10 +13,10 @@
         android:layout_weight="1" />
 
     <TextView
-        android:id="@+id/grant_title2"
+        android:id="@+id/grant_title3"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Grant External Storage Permission."
+        android:text="Enable Notifications (Optional)"
         android:textColor="#FFFFFF"
         android:textSize="24sp"
         android:textStyle="bold"
@@ -28,10 +28,10 @@
         android:layout_weight="0.3" />
 
     <TextView
-        android:id="@+id/desc3"
+        android:id="@+id/desc4"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Please grant storage permission for chosing disk image from external storage."
+        android:text="Allow notifications to see progress and a Stop button while a mode runs in the background. Everything still works without it."
         android:textColor="#D0E8FF"
         android:textSize="14sp"
         android:gravity="center"
@@ -44,10 +44,10 @@
         android:layout_weight="0.6" />
 
     <Button
-        android:id="@+id/button4"
+        android:id="@+id/button5"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="ALLOW STORAGE ACCESS"
+        android:text="ALLOW NOTIFICATIONS"
         android:backgroundTint="#2563EB" />
 
     <Space

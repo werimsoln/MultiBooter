@@ -102,6 +102,48 @@
             android:textSize="13sp" />
     </LinearLayout>
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:orientation="vertical"
+        android:background="#123A63"
+        android:padding="18dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Partition Style"
+            android:textColor="#D7EEFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <RadioGroup
+            android:id="@+id/ventoy_style_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/ventoy_style_mbr"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="MBR  -  works on most PCs (BIOS and UEFI)"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <RadioButton
+                android:id="@+id/ventoy_style_gpt"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="GPT  -  for UEFI PCs (some old BIOS PCs cannot boot it)"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+        </RadioGroup>
+    </LinearLayout>
+
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

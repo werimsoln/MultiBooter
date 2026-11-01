@@ -33,6 +33,12 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class TftpMode {
 
@@ -354,6 +360,72 @@ public final class TftpMode {
 
         lastError = "";
         return true;
+    }
+
+    /**
+     * Lists the network interfaces that are up, using root.
+     *
+     * The app has no INTERNET permission any more. Without it Android may
+     * refuse the socket calls behind NetworkInterface on some versions, so
+     * the interface picker falls back to this root query.
+     *
+     * @return pairs of { interface name, IPv4 address or "" }
+     */
+    public static List<String[]> listInterfacesViaRoot() {
+
+        List<String[]> out = new ArrayList<String[]>();
+
+        CommandResult link = runRoot(
+            "ip -o link show 2>/dev/null || toybox ip -o link show 2>/dev/null"
+        );
+
+        CommandResult addr = runRoot(
+            "ip -o -4 addr show 2>/dev/null || toybox ip -o -4 addr show 2>/dev/null"
+        );
+
+        Map<String, String> ips = new HashMap<String, String>();
+
+        Pattern addrLine = Pattern.compile(
+            "^\\d+:\\s+(\\S+)\\s+inet\\s+(\\d+\\.\\d+\\.\\d+\\.\\d+)"
+        );
+
+        for (String line : addr.output.split("\n")) {
+
+            Matcher m = addrLine.matcher(line.trim());
+
+            if (m.find() && !ips.containsKey(m.group(1))) {
+                ips.put(m.group(1), m.group(2));
+            }
+        }
+
+        Pattern linkLine = Pattern.compile(
+            "^\\d+:\\s+([^:@\\s]+)[^<]*<([^>]*)>"
+        );
+
+        for (String line : link.output.split("\n")) {
+
+            Matcher m = linkLine.matcher(line.trim());
+
+            if (!m.find()) {
+                continue;
+            }
+
+            String name = m.group(1);
+
+            if (
+                "lo".equals(name) ||
+                !safeInterface(name) ||
+                !("," + m.group(2) + ",").contains(",UP,")
+            ) {
+                continue;
+            }
+
+            String ip = ips.get(name);
+
+            out.add(new String[] { name, ip == null ? "" : ip });
+        }
+
+        return out;
     }
 
     public static boolean isPxeRunning(Context context) {

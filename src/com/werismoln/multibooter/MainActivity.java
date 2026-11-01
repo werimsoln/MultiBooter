@@ -54,9 +54,10 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
 public class MainActivity extends BaseActivity {
-
-    private static final int REQUEST_STORAGE_PERMISSION = 100;
     private static final int REQUEST_NOTIFICATION_PERMISSION = 101;
+
+    /** Index of the last onboarding page (4 pages: 0..3). */
+    private static final int LAST_PAGE = 3;
 
     private static final String STATE_FILE = "restored-data";
     private static final String FLAG_ROOT_GRANTED = "root-granted=true";
@@ -64,7 +65,6 @@ public class MainActivity extends BaseActivity {
 
     private boolean button3_pushed = false;
     private boolean isRootGranted = false;
-    private boolean isStorageGranted = false;
     private boolean isNotificationGranted = false;
     private boolean isNotificationRequested = false;
     private boolean isBatteryOptimizationDisabled = false;
@@ -76,16 +76,14 @@ public class MainActivity extends BaseActivity {
     private Button btnback;
     private Button btnnext;
     private Button btngrant;
-    private Button btngrant2;
-    private Button btngrant3;
-    private Button btngrant4;
+    private Button btnnotify;
+    private Button btnbattery;
 
     private RadioGroup radiogroup;
     private RadioButton radio1;
     private RadioButton radio2;
     private RadioButton radio3;
     private RadioButton radio4;
-    private RadioButton radio5;
 
     private final DecelerateInterpolator decelerateInterpolator =
         new DecelerateInterpolator();
@@ -116,7 +114,7 @@ public class MainActivity extends BaseActivity {
                 savedInstanceState.getBoolean("NOTIFICATION_REQUESTED", false);
         }
 
-        if (savedPage < 0 || savedPage > 4) {
+        if (savedPage < 0 || savedPage > 3) {
             savedPage = 0;
         }
 
@@ -136,9 +134,8 @@ public class MainActivity extends BaseActivity {
         btnback = (Button) findViewById(R.id.button);
         btnnext = (Button) findViewById(R.id.button2);
         btngrant = (Button) findViewById(R.id.button3);
-        btngrant2 = (Button) findViewById(R.id.button4);
-        btngrant3 = (Button) findViewById(R.id.button5);
-        btngrant4 = (Button) findViewById(R.id.button6);
+        btnnotify = (Button) findViewById(R.id.button5);
+        btnbattery = (Button) findViewById(R.id.button6);
 
         viewflipper = (ViewFlipper) findViewById(R.id.viewflipper);
 
@@ -147,7 +144,6 @@ public class MainActivity extends BaseActivity {
         radio2 = (RadioButton) findViewById(R.id.radio2);
         radio3 = (RadioButton) findViewById(R.id.radio3);
         radio4 = (RadioButton) findViewById(R.id.radio4);
-        radio5 = (RadioButton) findViewById(R.id.radio5);
     }
 
     private void setupRadioButtons() {
@@ -163,7 +159,6 @@ public class MainActivity extends BaseActivity {
         radio2.setOnTouchListener(touchblocker);
         radio3.setOnTouchListener(touchblocker);
         radio4.setOnTouchListener(touchblocker);
-        radio5.setOnTouchListener(touchblocker);
     }
 
     private void setupClickListeners() {
@@ -189,16 +184,9 @@ public class MainActivity extends BaseActivity {
             }
         });
 
-        btngrant2.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (!hasStoragePermission()) {
-                    requestStoragePermission();
-                }
-            }
-        });
+        
 
-        btngrant3.setOnClickListener(new View.OnClickListener() {
+        btnnotify.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (!hasNotificationPermission()) {
@@ -207,7 +195,7 @@ public class MainActivity extends BaseActivity {
             }
         });
 
-        btngrant4.setOnClickListener(new View.OnClickListener() {
+        btnbattery.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 disableBatteryOptimization();
@@ -241,9 +229,8 @@ public class MainActivity extends BaseActivity {
         btnback.setOnTouchListener(buttonTouchListener);
         btnnext.setOnTouchListener(buttonTouchListener);
         btngrant.setOnTouchListener(buttonTouchListener);
-        btngrant2.setOnTouchListener(buttonTouchListener);
-        btngrant3.setOnTouchListener(buttonTouchListener);
-        btngrant4.setOnTouchListener(buttonTouchListener);
+        btnnotify.setOnTouchListener(buttonTouchListener);
+        btnbattery.setOnTouchListener(buttonTouchListener);
     }
 
     private void goNext() {
@@ -252,45 +239,33 @@ public class MainActivity extends BaseActivity {
 
         /*
          * 0 = Welcome
-         * 1 = Root
-         * 2 = Storage
-         * 3 = Notification
-         * 4 = Battery Optimization
+         * 1 = Root                  (optional)
+         * 2 = Notifications         (optional)
+         * 3 = Battery optimization  (optional)
+         *
+         * No page blocks the user: every permission is optional and the
+         * app explains what is lost if it is not granted.
          */
-
-        if (current == 2 && !hasStoragePermission()) {
-            return;
-        }
-
-        if (current == 3 && !hasNotificationPermission()) {
-            return;
-        }
-
-        if (current == 4) {
-
-            if (!hasBatteryOptimizationBeenDisabled()) {
-                return;
-            }
-
+        if (current >= LAST_PAGE) {
             finishSetup();
             return;
         }
 
-        if (current < 4) {
-            viewflipper.setInAnimation(
-                MainActivity.this,
-                R.anim.slide_in_right
-            );
+        viewflipper.setInAnimation(
+            MainActivity.this,
+            R.anim.slide_in_right
+        );
 
-            viewflipper.setOutAnimation(
-                MainActivity.this,
-                R.anim.slide_out_left
-            );
+        viewflipper.setOutAnimation(
+            MainActivity.this,
+            R.anim.slide_out_left
+        );
 
-            int next = current + 1;
-            viewflipper.setDisplayedChild(next);
-            updateUI(next, true);
-        }
+        int next = current + 1;
+
+        viewflipper.setDisplayedChild(next);
+
+        updateUI(next, true);
     }
 
     private void goBack() {
@@ -328,50 +303,12 @@ public class MainActivity extends BaseActivity {
             btnback.setEnabled(true);
         }
 
-        switch (position) {
+        btnnext.setEnabled(true);
 
-            case 0:
-            case 1:
-                btnnext.setText("NEXT >");
-                btnnext.setEnabled(true);
-                break;
-
-            case 2:
-                isStorageGranted = hasStoragePermission();
-
-                if (isStorageGranted) {
-                    btnnext.setText("NEXT >");
-                    btnnext.setEnabled(true);
-                } else {
-                    btnnext.setText("");
-                    btnnext.setEnabled(false);
-                }
-                break;
-
-            case 3:
-                isNotificationGranted = hasNotificationPermission();
-
-                if (isNotificationGranted) {
-                    btnnext.setText("NEXT >");
-                    btnnext.setEnabled(true);
-                } else {
-                    btnnext.setText("");
-                    btnnext.setEnabled(false);
-                }
-                break;
-
-            case 4:
-                isBatteryOptimizationDisabled =
-                    hasBatteryOptimizationBeenDisabled();
-
-                if (isBatteryOptimizationDisabled) {
-                    btnnext.setText("FINISH");
-                    btnnext.setEnabled(true);
-                } else {
-                    btnnext.setText("");
-                    btnnext.setEnabled(false);
-                }
-                break;
+        if (position >= LAST_PAGE) {
+            btnnext.setText("FINISH");
+        } else {
+            btnnext.setText("NEXT >");
         }
     }
 
@@ -381,8 +318,7 @@ public class MainActivity extends BaseActivity {
             radio1,
             radio2,
             radio3,
-            radio4,
-            radio5
+            radio4
         };
 
         for (int i = 0; i < radios.length; i++) {
@@ -415,7 +351,6 @@ public class MainActivity extends BaseActivity {
     private void refreshPermissionStates() {
 
         isRootGranted = hasSavedFlag(FLAG_ROOT_GRANTED);
-        isStorageGranted = hasStoragePermission();
         isNotificationGranted = hasNotificationPermission();
         isBatteryOptimizationDisabled =
             hasBatteryOptimizationBeenDisabled();
@@ -458,36 +393,30 @@ public class MainActivity extends BaseActivity {
             );
         }
 
-        /* SAF grants access per selected document or folder. */
-        isStorageGranted = true;
-        btngrant2.setText("NOT REQUIRED");
-        btngrant2.setBackgroundTintList(
-            ColorStateList.valueOf(Color.parseColor("#757575"))
-        );
-        btngrant2.setEnabled(false);
+        
 
         /*
          * Notification butonu.
          */
         if (isNotificationGranted) {
 
-            btngrant3.setText("ALLOWED");
-            btngrant3.setBackgroundTintList(
+            btnnotify.setText("ALLOWED");
+            btnnotify.setBackgroundTintList(
                 ColorStateList.valueOf(
                     Color.parseColor("#4CAF50")
                 )
             );
-            btngrant3.setEnabled(false);
+            btnnotify.setEnabled(false);
 
         } else {
 
-            btngrant3.setText("ALLOW NOTIFICATIONS");
-            btngrant3.setBackgroundTintList(
+            btnnotify.setText("ALLOW NOTIFICATIONS");
+            btnnotify.setBackgroundTintList(
                 ColorStateList.valueOf(
                     Color.parseColor("#2563EB")
                 )
             );
-            btngrant3.setEnabled(true);
+            btnnotify.setEnabled(true);
         }
 
         /*
@@ -495,23 +424,23 @@ public class MainActivity extends BaseActivity {
          */
         if (isBatteryOptimizationDisabled) {
 
-            btngrant4.setText("DISABLED");
-            btngrant4.setBackgroundTintList(
+            btnbattery.setText("DISABLED");
+            btnbattery.setBackgroundTintList(
                 ColorStateList.valueOf(
                     Color.parseColor("#4CAF50")
                 )
             );
-            btngrant4.setEnabled(false);
+            btnbattery.setEnabled(false);
 
         } else {
 
-            btngrant4.setText("DISABLE");
-            btngrant4.setBackgroundTintList(
+            btnbattery.setText("DISABLE");
+            btnbattery.setBackgroundTintList(
                 ColorStateList.valueOf(
                     Color.parseColor("#2563EB")
                 )
             );
-            btngrant4.setEnabled(true);
+            btnbattery.setEnabled(true);
         }
     }
 
@@ -632,15 +561,7 @@ public class MainActivity extends BaseActivity {
         }
     }
 
-    private void requestStoragePermission() {
-        isStorageGranted = true;
-        updateGrantButtons();
-        updateUI(viewflipper.getDisplayedChild(), false);
-    }
-
-    private boolean hasStoragePermission() {
-        return true;
-    }
+    
 
     private void requestNotificationPermission() {
 
@@ -829,7 +750,6 @@ public class MainActivity extends BaseActivity {
         );
 
         if (
-            requestCode == REQUEST_STORAGE_PERMISSION ||
             requestCode == REQUEST_NOTIFICATION_PERMISSION
         ) {
 
@@ -934,22 +854,12 @@ public class MainActivity extends BaseActivity {
     private void finishSetup() {
 
         /*
-         * Root isteğe bağlıdır.
-         * Storage, notification ve battery izinleri zorunludur.
+         * Nothing is mandatory. Root, notifications and the battery
+         * optimization exemption can all be skipped; the related features
+         * are simply limited and the app says why where it matters.
          */
-        if (!hasStoragePermission()) {
-            return;
-        }
-
-        if (!hasNotificationPermission()) {
-            return;
-        }
-
-        if (!hasBatteryOptimizationBeenDisabled()) {
-            return;
-        }
-
         saveFlag(FLAG_PERMISSIONS_GRANTED);
+
         openBootManager();
     }
 

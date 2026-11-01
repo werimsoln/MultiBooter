@@ -4,20 +4,20 @@
     <Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.5" />
     
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="3" android:gravity="center">
-        <ImageView android:id="@+id/imageview4" android:layout_width="120dp" android:layout_height="120dp" android:src="@drawable/bell" android:scaleType="fitCenter" />
+        <ImageView android:id="@+id/imageview5" android:layout_width="100dp" android:layout_height="100dp" android:src="@drawable/battery" android:scaleType="fitCenter" />
     </LinearLayout>
     
     <Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.5" />
     
-    <TextView android:id="@+id/grant_title3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Enable Notifications" android:textColor="#FFFFFF" android:textSize="28sp" android:textStyle="bold" android:gravity="center" />
+    <TextView android:id="@+id/grant_title4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Disable Battery Optimization (Optional)" android:textColor="#FFFFFF" android:textSize="28sp" android:textStyle="bold" android:gravity="center" />
     
     <Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.3" />
     
-    <TextView android:id="@+id/desc4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Please enable notifications to get information about the process in the background." android:textColor="#D0E8FF" android:textSize="16sp" android:gravity="center" android:paddingStart="16dp" android:paddingEnd="16dp" />
+    <TextView android:id="@+id/desc5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Recommended for long running modes such as the TFTP server. You can skip this, but some devices may stop background work earlier." android:textColor="#D0E8FF" android:textSize="16sp" android:gravity="center" android:paddingStart="16dp" android:paddingEnd="16dp" />
     
     <Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1.2" />
     
-    <Button android:id="@+id/button5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:text="ALLOW NOTIFICATIONS" android:backgroundTint="#2563EB" />
+    <Button android:id="@+id/button6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:text="DISABLE" android:backgroundTint="#2563EB" />
     
     <Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.1" />
 

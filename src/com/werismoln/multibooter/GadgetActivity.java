@@ -99,6 +99,16 @@ public class GadgetActivity extends BaseActivity {
             )
         ) {
 
+            if (!ModeService.isActive(ModeService.MODE_GADGET)) {
+
+                ModeService.begin(
+                    getApplicationContext(),
+                    ModeService.MODE_GADGET,
+                    "Mass storage gadget is active",
+                    stopHook(getApplicationContext())
+                );
+            }
+
             showActivePage();
 
         } else {
@@ -109,6 +119,61 @@ public class GadgetActivity extends BaseActivity {
                 imagePathEdit.setText(selectedImageLabel);
                 updateImageInfo(selectedImageLabel);
             }
+        }
+    }
+
+        /** Disables the gadget. Used by the notification "Stop" action. */
+    private static ModeService.StopHook stopHook(final android.content.Context app) {
+
+        return new ModeService.StopHook() {
+
+            @Override
+            public void stop() {
+
+                boolean ok =
+                    UsbGadget.disableMassStorage(app);
+
+                String error =
+                    UsbGadget.getLastError();
+
+                if (ok) {
+
+                    ModeService.end(
+                        app,
+                        ModeService.MODE_GADGET,
+                        true,
+                        "USB Gadget disabled."
+                    );
+
+                } else {
+
+                    ModeService.begin(
+                        app,
+                        ModeService.MODE_GADGET,
+                        "Could not disable: " +
+                        (error.length() == 0 ? "unknown error" : error),
+                        stopHook(app)
+                    );
+                }
+            }
+        };
+    }
+
+    @Override
+    protected void onResume() {
+
+        super.onResume();
+
+        // The gadget may have been stopped from the notification.
+        if (
+            activePage &&
+            !operationRunning &&
+            !UsbGadget.hasSavedActiveSession(
+                this
+            )
+        ) {
+
+            showSetupPage();
         }
     }
 
@@ -770,6 +835,13 @@ public class GadgetActivity extends BaseActivity {
             true
         );
 
+        ModeService.begin(
+            getApplicationContext(),
+            ModeService.MODE_GADGET,
+            "Enabling USB gadget...",
+            stopHook(getApplicationContext())
+        );
+
         new Thread(
             new Runnable() {
 
@@ -787,6 +859,27 @@ public class GadgetActivity extends BaseActivity {
 
                     final String error =
                         UsbGadget.getLastError();
+
+                    if (success) {
+
+                        ModeService.progress(
+                            getApplicationContext(),
+                            ModeService.MODE_GADGET,
+                            -1,
+                            "Mass storage gadget is active"
+                        );
+
+                    } else {
+
+                        ModeService.end(
+                            getApplicationContext(),
+                            ModeService.MODE_GADGET,
+                            false,
+                            error.length() == 0
+                                ? "Could not enable USB Gadget."
+                                : error
+                        );
+                    }
 
                     runOnUiThread(
                         new Runnable() {
@@ -1054,6 +1147,16 @@ public class GadgetActivity extends BaseActivity {
 
                     final String error =
                         UsbGadget.getLastError();
+
+                    if (success) {
+
+                        ModeService.end(
+                            getApplicationContext(),
+                            ModeService.MODE_GADGET,
+                            true,
+                            "USB Gadget disabled."
+                        );
+                    }
 
                     runOnUiThread(
                         new Runnable() {

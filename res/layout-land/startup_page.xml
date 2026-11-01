@@ -15,7 +15,6 @@
         <include layout="@layout/startup_slide_2" />
         <include layout="@layout/startup_slide_3" />
         <include layout="@layout/startup_slide_4" />
-        <include layout="@layout/startup_slide_5" />
 
     </ViewFlipper>
 
@@ -43,7 +42,6 @@
 
             <RadioButton android:id="@+id/radio4" android:clickable="false" android:focusable="false" android:button="@drawable/radio_full_selector" android:background="@null" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:scaleX="0.4" android:scaleY="0.4" android:transformPivotX="0dp" />
 
-            <RadioButton android:id="@+id/radio5" android:clickable="false" android:focusable="false" android:button="@drawable/radio_full_selector" android:background="@null" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:scaleX="0.4" android:scaleY="0.4" android:transformPivotX="0dp" />
         </RadioGroup>
 
         <LinearLayout

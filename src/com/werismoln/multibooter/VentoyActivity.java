@@ -39,6 +39,8 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ProgressBar;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -56,6 +58,9 @@ public class VentoyActivity extends BaseActivity {
 
     private static final String STATE_DEVICE_ID =
         "ventoy_device_id";
+
+    private static final String STATE_GPT =
+        "ventoy_gpt";
 
     private static final int PAGE_USB_SELECT = 1;
     private static final int PAGE_INSTALL = 2;
@@ -81,10 +86,29 @@ public class VentoyActivity extends BaseActivity {
     private UsbDevice selectedDevice;
     private DeviceCapacity selectedCapacity;
 
+    /** Result of looking for an existing Ventoy on the selected drive. */
+    private VentoyDetector.Info selectedVentoyInfo;
+
+    /** Chosen partition style for the new installation (false = MBR). */
+    private boolean selectedGpt =
+        false;
+
+    private RadioGroup styleGroup;
+
     private boolean receiverRegistered =
         false;
 
     private boolean capacityReadRunning =
+        false;
+
+    /** Installer started by this process; used by the notification Stop. */
+    private static volatile VentoyInstaller sActiveInstaller;
+
+    /**
+     * true when this instance only shows the progress of an install that was
+     * started by an earlier (now destroyed) instance of this screen.
+     */
+    private boolean statusOnly =
         false;
 
     private boolean installationRunning =
@@ -281,6 +305,24 @@ public class VentoyActivity extends BaseActivity {
             savedInstanceState
         );
 
+        if (
+            savedInstanceState == null &&
+            ModeStatusView.shouldShow(
+                ModeService.MODE_VENTOY
+            )
+        ) {
+
+            statusOnly =
+                true;
+
+            ModeStatusView.show(
+                this,
+                ModeService.MODE_VENTOY
+            );
+
+            return;
+        }
+
         usbManager =
             (UsbManager)
             getSystemService(
@@ -305,6 +347,12 @@ public class VentoyActivity extends BaseActivity {
                     STATE_DEVICE_ID,
                     -1
                 );
+
+            selectedGpt =
+                savedInstanceState.getBoolean(
+                    STATE_GPT,
+                    false
+                );
         }
 
         registerUsbReceiver();
@@ -316,6 +364,10 @@ public class VentoyActivity extends BaseActivity {
     protected void onResume() {
 
         super.onResume();
+
+        if (statusOnly) {
+            return;
+        }
 
         if (
             selectedDeviceId != -1 &&
@@ -359,6 +411,11 @@ public class VentoyActivity extends BaseActivity {
         outState.putInt(
             STATE_DEVICE_ID,
             selectedDeviceId
+        );
+
+        outState.putBoolean(
+            STATE_GPT,
+            selectedGpt
         );
 
         super.onSaveInstanceState(
@@ -784,6 +841,9 @@ public class VentoyActivity extends BaseActivity {
         selectedCapacity =
             null;
 
+        selectedVentoyInfo =
+            null;
+
         capacityReadRunning =
             false;
 
@@ -852,6 +912,9 @@ public class VentoyActivity extends BaseActivity {
         selectedCapacity =
             null;
 
+        selectedVentoyInfo =
+            null;
+
         updateUsbSelectionUi();
 
         new Thread(
@@ -868,6 +931,9 @@ public class VentoyActivity extends BaseActivity {
                     DeviceCapacity capacity =
                         null;
 
+                    VentoyDetector.Info ventoyInfo =
+                        null;
+
                     String error =
                         "";
 
@@ -882,6 +948,56 @@ public class VentoyActivity extends BaseActivity {
                                 usbVentoy.getBlockSize()
                             );
 
+                        /*
+                         * Look for an existing Ventoy. This is optional
+                         * information: any problem here must never stop
+                         * the user from selecting the drive.
+                         */
+                        if (
+                            usbVentoy.getBlockSize() ==
+                            VentoyDetector.SECTOR
+                        ) {
+
+                            try {
+
+                                ventoyInfo =
+                                    VentoyDetector.detect(
+                                        new VentoyDetector.SectorReader() {
+
+                                            @Override
+                                            public byte[] read(
+                                                long lba,
+                                                int count
+                                            ) throws java.io.IOException {
+
+                                                byte[] data =
+                                                    usbVentoy.readData(
+                                                        lba,
+                                                        count
+                                                    );
+
+                                                if (
+                                                    data == null
+                                                ) {
+
+                                                    throw new java.io.IOException(
+                                                        usbVentoy.getLastError()
+                                                    );
+                                                }
+
+                                                return data;
+                                            }
+                                        },
+                                        usbVentoy.getBlockCount()
+                                    );
+
+                            } catch (RuntimeException e) {
+
+                                ventoyInfo =
+                                    null;
+                            }
+                        }
+
                     } else {
 
                         error =
@@ -893,6 +1009,10 @@ public class VentoyActivity extends BaseActivity {
                     final DeviceCapacity
                         finalCapacity =
                             capacity;
+
+                    final VentoyDetector.Info
+                        finalVentoyInfo =
+                            ventoyInfo;
 
                     final String finalError =
                         error;
@@ -940,6 +1060,23 @@ public class VentoyActivity extends BaseActivity {
 
                                 selectedCapacity =
                                     finalCapacity;
+
+                                selectedVentoyInfo =
+                                    finalVentoyInfo;
+
+                                /*
+                                 * Start from the style that is already on
+                                 * the drive; otherwise keep the user's last
+                                 * choice (MBR by default).
+                                 */
+                                if (
+                                    finalVentoyInfo != null &&
+                                    finalVentoyInfo.layoutFound
+                                ) {
+
+                                    selectedGpt =
+                                        finalVentoyInfo.gpt;
+                                }
 
                                 updateUsbSelectionUi();
                             }
@@ -1039,6 +1176,9 @@ public class VentoyActivity extends BaseActivity {
             null;
 
         selectedCapacity =
+            null;
+
+        selectedVentoyInfo =
             null;
 
         selectedDeviceId =
@@ -1219,6 +1359,62 @@ public class VentoyActivity extends BaseActivity {
             buildSelectedDeviceDetails()
         );
 
+        styleGroup =
+            (RadioGroup)
+            findViewById(
+                R.id.ventoy_style_group
+            );
+
+        RadioButton styleMbr =
+            (RadioButton)
+            findViewById(
+                R.id.ventoy_style_mbr
+            );
+
+        RadioButton styleGpt =
+            (RadioButton)
+            findViewById(
+                R.id.ventoy_style_gpt
+            );
+
+        if (
+            styleGroup != null &&
+            styleMbr != null &&
+            styleGpt != null
+        ) {
+
+            if (
+                selectedGpt
+            ) {
+
+                styleGpt.setChecked(
+                    true
+                );
+
+            } else {
+
+                styleMbr.setChecked(
+                    true
+                );
+            }
+
+            styleGroup.setOnCheckedChangeListener(
+                new RadioGroup.OnCheckedChangeListener() {
+
+                    @Override
+                    public void onCheckedChanged(
+                        RadioGroup group,
+                        int checkedId
+                    ) {
+
+                        selectedGpt =
+                            checkedId ==
+                            R.id.ventoy_style_gpt;
+                    }
+                }
+            );
+        }
+
         addTouchFeedback(
             back
         );
@@ -1330,6 +1526,16 @@ public class VentoyActivity extends BaseActivity {
             formatBytes(
                 selectedCapacity.totalBytes
             ) +
+            "\n\nPartition style: " +
+            styleName() +
+            (
+                selectedVentoyInfo != null &&
+                selectedVentoyInfo.layoutFound
+                ? "\n" +
+                    selectedVentoyInfo.describe() +
+                    " and will be replaced."
+                : ""
+            ) +
             "\n\nAll data on this USB drive will be permanently erased.";
 
         new AlertDialog.Builder(
@@ -1383,7 +1589,9 @@ public class VentoyActivity extends BaseActivity {
                 "Final confirmation"
             )
             .setMessage(
-                "Ventoy will rewrite the partition table, format the main partition as exFAT, and write the Ventoy boot data. This cannot be undone."
+                "Ventoy will rewrite the partition table (" +
+                styleName() +
+                "), format the main partition as exFAT, and write the Ventoy boot data. This cannot be undone."
             )
             .setNegativeButton(
                 "CANCEL",
@@ -1430,6 +1638,9 @@ public class VentoyActivity extends BaseActivity {
         final UsbDevice installDevice =
             selectedDevice;
 
+        final boolean installGpt =
+            selectedGpt;
+
         installationRunning =
             true;
 
@@ -1457,6 +1668,10 @@ public class VentoyActivity extends BaseActivity {
             0.45f
         );
 
+        setStyleGroupEnabled(
+            false
+        );
+
         progressBar.setProgress(
             0
         );
@@ -1475,8 +1690,30 @@ public class VentoyActivity extends BaseActivity {
 
         final VentoyInstaller installer =
             new VentoyInstaller(
-                VentoyActivity.this
+                getApplicationContext()
             );
+
+        sActiveInstaller =
+            installer;
+
+        ModeService.begin(
+            getApplicationContext(),
+            ModeService.MODE_VENTOY,
+            "Preparing Ventoy installation...",
+            new ModeService.StopHook() {
+
+                @Override
+                public void stop() {
+
+                    VentoyInstaller running =
+                        sActiveInstaller;
+
+                    if (running != null) {
+                        running.cancel();
+                    }
+                }
+            }
+        );
 
         new Thread(
             new Runnable() {
@@ -1485,8 +1722,9 @@ public class VentoyActivity extends BaseActivity {
                 public void run() {
 
                     int result =
-                        installer.installMbr(
+                        installer.install(
                             installDevice,
+                            installGpt,
                             new VentoyInstaller.ProgressListener() {
 
                                 @Override
@@ -1494,6 +1732,13 @@ public class VentoyActivity extends BaseActivity {
                                     final int percent,
                                     final String message
                                 ) {
+
+                                    ModeService.progress(
+                                        getApplicationContext(),
+                                        ModeService.MODE_VENTOY,
+                                        percent,
+                                        message
+                                    );
 
                                     runOnUiThread(
                                         new Runnable() {
@@ -1526,6 +1771,23 @@ public class VentoyActivity extends BaseActivity {
 
                     final String finalError =
                         installer.getLastError();
+
+                    sActiveInstaller =
+                        null;
+
+                    ModeService.end(
+                        getApplicationContext(),
+                        ModeService.MODE_VENTOY,
+                        finalResult == VentoyInstaller.RESULT_OK,
+                        finalResult == VentoyInstaller.RESULT_OK
+                            ? "Ventoy installation completed."
+                            : (
+                                finalError == null ||
+                                finalError.length() == 0
+                                    ? "Ventoy installation failed."
+                                    : finalError
+                            )
+                    );
 
                     runOnUiThread(
                         new Runnable() {
@@ -1563,6 +1825,10 @@ public class VentoyActivity extends BaseActivity {
 
         installationRunning =
             false;
+
+        setStyleGroupEnabled(
+            true
+        );
 
         getWindow().clearFlags(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
@@ -1658,6 +1924,34 @@ public class VentoyActivity extends BaseActivity {
                     null
                 )
                 .show();
+        }
+    }
+
+    private void setStyleGroupEnabled(
+        boolean enabled
+    ) {
+
+        if (
+            styleGroup == null
+        ) {
+
+            return;
+        }
+
+        for (
+            int i = 0;
+            i < styleGroup.getChildCount();
+            i++
+        ) {
+
+            View child =
+                styleGroup.getChildAt(
+                    i
+                );
+
+            child.setEnabled(
+                enabled
+            );
         }
     }
 
@@ -1778,6 +2072,28 @@ public class VentoyActivity extends BaseActivity {
         );
     }
 
+    private String buildVentoyStatusLine() {
+
+        if (
+            selectedVentoyInfo == null
+        ) {
+
+            return "";
+        }
+
+        return
+            "\n" +
+            selectedVentoyInfo.describe();
+    }
+
+    private String styleName() {
+
+        return
+            selectedGpt
+            ? "GPT"
+            : "MBR";
+    }
+
     private String buildSelectedDeviceDetails() {
 
         if (
@@ -1798,7 +2114,8 @@ public class VentoyActivity extends BaseActivity {
             ) +
             "  •  Sector: " +
             selectedCapacity.blockSize +
-            " bytes";
+            " bytes" +
+            buildVentoyStatusLine();
     }
 
     private static String formatBytes(

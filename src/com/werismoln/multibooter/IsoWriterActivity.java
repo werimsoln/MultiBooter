@@ -199,6 +199,17 @@ public class IsoWriterActivity extends BaseActivity {
         }
     }
 
+    /** Set by the notification "Stop" action; checked by the write loop. */
+    private static volatile boolean sCancelRequested =
+        false;
+
+    /**
+     * true when this instance only shows the progress of a write that was
+     * started by an earlier (now destroyed) instance of this screen.
+     */
+    private boolean statusOnly =
+        false;
+
     private static final class WriteResult {
 
         final boolean success;
@@ -379,6 +390,24 @@ public class IsoWriterActivity extends BaseActivity {
             savedInstanceState
         );
 
+        if (
+            savedInstanceState == null &&
+            ModeStatusView.shouldShow(
+                ModeService.MODE_ISO
+            )
+        ) {
+
+            statusOnly =
+                true;
+
+            ModeStatusView.show(
+                this,
+                ModeService.MODE_ISO
+            );
+
+            return;
+        }
+
         usbManager =
             (UsbManager)
             getSystemService(
@@ -444,6 +473,10 @@ public class IsoWriterActivity extends BaseActivity {
     protected void onResume() {
 
         super.onResume();
+
+        if (statusOnly) {
+            return;
+        }
 
         if (
             selectedDeviceId != -1 &&
@@ -2078,6 +2111,24 @@ public class IsoWriterActivity extends BaseActivity {
         writeRunning =
             true;
 
+        sCancelRequested =
+            false;
+
+        ModeService.begin(
+            getApplicationContext(),
+            ModeService.MODE_ISO,
+            "Opening USB device...",
+            new ModeService.StopHook() {
+
+                @Override
+                public void stop() {
+
+                    sCancelRequested =
+                        true;
+                }
+            }
+        );
+
         capacityGeneration++;
 
         if (probeUsb != null) {
@@ -2148,6 +2199,19 @@ public class IsoWriterActivity extends BaseActivity {
                             progressText,
                             progressDetails
                         );
+
+                    ModeService.end(
+                        getApplicationContext(),
+                        ModeService.MODE_ISO,
+                        result.success,
+                        result.success
+                            ? "ISO was written successfully."
+                            : (
+                                result.message.length() == 0
+                                    ? "ISO writing failed."
+                                    : result.message
+                            )
+                    );
 
                     runOnUiThread(
                         new Runnable() {
@@ -2449,6 +2513,16 @@ public class IsoWriterActivity extends BaseActivity {
 
             for (;;) {
 
+                if (
+                    sCancelRequested
+                ) {
+
+                    return new WriteResult(
+                        false,
+                        "Writing was stopped. The USB drive is incomplete."
+                    );
+                }
+
                 int bytesRead =
                     readUpTo(
                         input,
@@ -2705,6 +2779,15 @@ public class IsoWriterActivity extends BaseActivity {
         final String message,
         final String details
     ) {
+
+        ModeService.progress(
+            getApplicationContext(),
+            ModeService.MODE_ISO,
+            percent,
+            details == null || details.length() == 0
+                ? message
+                : message + "  " + details
+        );
 
         runOnUiThread(
             new Runnable() {

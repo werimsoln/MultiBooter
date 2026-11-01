@@ -114,10 +114,44 @@ public class TftpActivity extends BaseActivity {
         super.onCreate(savedInstanceState);
 
         if (TftpMode.isPxeRunning(this)) {
+            if (!ModeService.isActive(ModeService.MODE_TFTP)) {
+                ModeService.begin(
+                    getApplicationContext(),
+                    ModeService.MODE_TFTP,
+                    "PXE/TFTP server is running",
+                    stopHook(getApplicationContext())
+                );
+            }
             showRunningPage();
         } else {
             showSetupPage();
         }
+    }
+
+        /** Stops dnsmasq. Used by the notification "Stop" action. */
+    private static ModeService.StopHook stopHook(final android.content.Context app) {
+        return new ModeService.StopHook() {
+            @Override
+            public void stop() {
+                boolean ok = TftpMode.stopPxe(app);
+                String error = TftpMode.getLastError();
+                if (ok) {
+                    ModeService.end(
+                        app,
+                        ModeService.MODE_TFTP,
+                        true,
+                        "PXE/TFTP server stopped."
+                    );
+                } else {
+                    ModeService.begin(
+                        app,
+                        ModeService.MODE_TFTP,
+                        "Could not stop: " + (error.length() == 0 ? "unknown error" : error),
+                        stopHook(app)
+                    );
+                }
+            }
+        };
     }
 
     @Override
@@ -315,6 +349,70 @@ public class TftpActivity extends BaseActivity {
                 Toast.LENGTH_LONG
             ).show();
         }
+
+                if (interfaces.isEmpty()) {
+            loadInterfacesViaRoot();
+        }
+
+        applyInterfaces();
+    }
+
+    /**
+     * Fallback for devices where NetworkInterface returns nothing (for
+     * example when the app has no INTERNET permission): ask root.
+     */
+    private void loadInterfacesViaRoot() {
+
+        new Thread(
+            new Runnable() {
+
+                @Override
+                public void run() {
+
+                    final java.util.List<String[]> found =
+                        TftpMode.listInterfacesViaRoot();
+
+                    runOnUiThread(
+                        new Runnable() {
+
+                            @Override
+                            public void run() {
+
+                                if (isFinishing() || found.isEmpty()) {
+                                    return;
+                                }
+
+                                interfaces.clear();
+
+                                for (String[] item : found) {
+
+                                    interfaces.add(
+                                        new InterfaceItem(
+                                            item[0],
+                                            item[1].length() > 0
+                                                ? item[0] + "  \u2022  " + item[1]
+                                                : item[0]
+                                        )
+                                    );
+                                }
+
+                                applyInterfaces();
+
+                                selectInterface(
+                                    TftpMode.getLastSession(
+                                        getApplicationContext()
+                                    ).interfaceName
+                                );
+                            }
+                        }
+                    );
+                }
+            },
+            "TftpInterfaces"
+        ).start();
+    }
+
+    private void applyInterfaces() {
 
         Collections.sort(
             interfaces,
@@ -758,6 +856,13 @@ public class TftpActivity extends BaseActivity {
         operationRunning = true;
         setBusy(true);
 
+        ModeService.begin(
+            getApplicationContext(),
+            ModeService.MODE_TFTP,
+            "Starting PXE/TFTP server...",
+            stopHook(getApplicationContext())
+        );
+
         new Thread(
             new Runnable() {
                 @Override
@@ -791,6 +896,24 @@ public class TftpActivity extends BaseActivity {
                     final String error = preparationError.length() > 0
                         ? preparationError
                         : TftpMode.getLastError();
+
+                    if (success) {
+                        ModeService.progress(
+                            getApplicationContext(),
+                            ModeService.MODE_TFTP,
+                            -1,
+                            "Serving " + boot + " on " + iface
+                        );
+                    } else {
+                        ModeService.end(
+                            getApplicationContext(),
+                            ModeService.MODE_TFTP,
+                            false,
+                            error.length() == 0
+                                ? "PXE/TFTP could not be started."
+                                : error
+                        );
+                    }
 
                     runOnUiThread(
                         new Runnable() {
@@ -920,6 +1043,15 @@ public class TftpActivity extends BaseActivity {
                 public void run() {
                     final boolean ok = TftpMode.stopPxe(TftpActivity.this);
                     final String error = TftpMode.getLastError();
+
+                    if (ok) {
+                        ModeService.end(
+                            getApplicationContext(),
+                            ModeService.MODE_TFTP,
+                            true,
+                            "PXE/TFTP server stopped."
+                        );
+                    }
 
                     runOnUiThread(
                         new Runnable() {

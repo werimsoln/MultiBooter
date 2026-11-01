@@ -117,51 +117,6 @@
 
             </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="#123A63"
-                android:padding="14dp"
-                android:layout_marginBottom="12dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="STORAGE ACCESS"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="5dp"
-                    android:text="Allows MultiBooter to access ISO and image files stored on the device."
-                    android:textColor="#BAE6FD"
-                    android:textSize="12sp" />
-
-                <TextView
-                    android:id="@+id/settings_storage_status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="9dp"
-                    android:text="NOT GRANTED"
-                    android:textColor="#E53935"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/settings_storage_action"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="ALLOW STORAGE ACCESS"
-                    android:textColor="#FFFFFF"
-                    android:textStyle="bold"
-                    android:backgroundTint="#2563EB" />
-
-            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"

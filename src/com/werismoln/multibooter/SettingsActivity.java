@@ -33,7 +33,6 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.view.MotionEvent;
@@ -52,8 +51,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SettingsActivity extends BaseActivity {
-
-    private static final int REQUEST_STORAGE_PERMISSION = 5100;
     private static final int REQUEST_NOTIFICATION_PERMISSION = 5101;
 
     private static final String STATE_FILE = "restored-data";
@@ -66,12 +63,10 @@ public class SettingsActivity extends BaseActivity {
     private static final String FLAG_ROOT_GRANTED = "root-granted=true";
 
     private TextView rootStatus;
-    private TextView storageStatus;
     private TextView notificationStatus;
     private TextView batteryStatus;
 
     private Button rootAction;
-    private Button storageAction;
     private Button notificationAction;
     private Button batteryAction;
 
@@ -91,12 +86,10 @@ public class SettingsActivity extends BaseActivity {
 
     private void bindViews() {
         rootStatus = (TextView) findViewById(R.id.settings_root_status);
-        storageStatus = (TextView) findViewById(R.id.settings_storage_status);
         notificationStatus = (TextView) findViewById(R.id.settings_notifications_status);
         batteryStatus = (TextView) findViewById(R.id.settings_battery_status);
 
         rootAction = (Button) findViewById(R.id.settings_root_action);
-        storageAction = (Button) findViewById(R.id.settings_storage_action);
         notificationAction = (Button) findViewById(R.id.settings_notifications_action);
         batteryAction = (Button) findViewById(R.id.settings_battery_action);
     }
@@ -118,12 +111,7 @@ public class SettingsActivity extends BaseActivity {
             }
         });
 
-        storageAction.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                openStoragePermission();
-            }
-        });
+        
 
         notificationAction.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -166,7 +154,6 @@ public class SettingsActivity extends BaseActivity {
         };
 
         rootAction.setOnTouchListener(listener);
-        storageAction.setOnTouchListener(listener);
         notificationAction.setOnTouchListener(listener);
         batteryAction.setOnTouchListener(listener);
     }
@@ -179,7 +166,6 @@ public class SettingsActivity extends BaseActivity {
 
     private void refreshPermissionStates() {
         updateRootUi(hasSavedFlag(FLAG_ROOT_GRANTED));
-        updateStorageUi(hasStoragePermission());
         updateNotificationUi(hasNotificationPermission());
         updateBatteryUi(isBatteryOptimizationDisabled());
     }
@@ -204,12 +190,7 @@ public class SettingsActivity extends BaseActivity {
         }
     }
 
-    private void updateStorageUi(boolean granted) {
-        setStatus(storageStatus, granted ? "GRANTED" : "NOT GRANTED", granted);
-        storageAction.setText(granted ? "MANAGE STORAGE ACCESS" : "ALLOW STORAGE ACCESS");
-        storageAction.setEnabled(true);
-        setActionColor(storageAction);
-    }
+    
 
     private void updateNotificationUi(boolean granted) {
         setStatus(notificationStatus, granted ? "ALLOWED" : "NOT ALLOWED", granted);
@@ -348,51 +329,6 @@ public class SettingsActivity extends BaseActivity {
         }
     }
 
-    private boolean hasStoragePermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            return Environment.isExternalStorageManager();
-        }
-
-        return checkSelfPermission(
-            Manifest.permission.WRITE_EXTERNAL_STORAGE
-        ) == PackageManager.PERMISSION_GRANTED;
-    }
-
-    private void openStoragePermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            try {
-                Intent intent = new Intent(
-                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
-                );
-                intent.setData(Uri.parse("package:" + getPackageName()));
-                startActivity(intent);
-            } catch (Throwable ignored) {
-                try {
-                    startActivity(
-                        new Intent(
-                            Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION
-                        )
-                    );
-                } catch (Throwable error) {
-                    showSettingsError();
-                }
-            }
-            return;
-        }
-
-        if (!hasStoragePermission()) {
-            requestPermissions(
-                new String[] {
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE
-                },
-                REQUEST_STORAGE_PERMISSION
-            );
-            return;
-        }
-
-        openAppDetailsSettings();
-    }
-
     private boolean hasNotificationPermission() {
         NotificationManager manager =
             (NotificationManager)
@@ -514,7 +450,6 @@ public class SettingsActivity extends BaseActivity {
         );
 
         if (
-            requestCode == REQUEST_STORAGE_PERMISSION ||
             requestCode == REQUEST_NOTIFICATION_PERMISSION
         ) {
             refreshPermissionStates();

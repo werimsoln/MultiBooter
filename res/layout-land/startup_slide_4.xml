@@ -13,10 +13,10 @@
         android:layout_weight="1" />
 
     <TextView
-        android:id="@+id/grant_title3"
+        android:id="@+id/grant_title4"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Enable Notifications"
+        android:text="Disable Battery Optimization (Optional)"
         android:textColor="#FFFFFF"
         android:textSize="24sp"
         android:textStyle="bold"
@@ -28,10 +28,10 @@
         android:layout_weight="0.3" />
 
     <TextView
-        android:id="@+id/desc4"
+        android:id="@+id/desc5"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Please enable notifications to get information about the process in the background."
+        android:text="Recommended for long running modes such as the TFTP server. You can skip this, but some devices may stop background work earlier."
         android:textColor="#D0E8FF"
         android:textSize="14sp"
         android:gravity="center"
@@ -44,10 +44,10 @@
         android:layout_weight="0.6" />
 
     <Button
-        android:id="@+id/button5"
+        android:id="@+id/button6"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="ALLOW NOTIFICATIONS"
+        android:text="DISABLE"
         android:backgroundTint="#2563EB" />
 
     <Space

@@ -102,6 +102,7 @@ public final class UsbVentoy {
     private static final int SCSI_TEST_UNIT_READY = 0x00;
     private static final int SCSI_REQUEST_SENSE = 0x03;
     private static final int SCSI_READ_CAPACITY_10 = 0x25;
+    private static final int SCSI_READ_10 = 0x28;
     private static final int SCSI_WRITE_10 = 0x2A;
     private static final int SCSI_SYNCHRONIZE_CACHE_10 = 0x35;
 
@@ -1052,6 +1053,72 @@ public final class UsbVentoy {
             tag,
             (int)transferBytesLong,
             BOT_DIRECTION_OUT,
+            0,
+            cdb,
+            10
+        );
+    }
+
+    private static byte[] createRead10Cbw(
+        int tag,
+        long lba,
+        int sectorCount,
+        int logicalBlockSize
+    ) {
+
+        if (
+            lba < 0 ||
+            lba > MAX_WRITE10_LBA
+        ) {
+            throw new IllegalArgumentException(
+                "READ(10) LBA is out of range."
+            );
+        }
+
+        if (
+            sectorCount <= 0 ||
+            sectorCount > MAX_WRITE10_BLOCKS
+        ) {
+            throw new IllegalArgumentException(
+                "READ(10) sectorCount is out of range."
+            );
+        }
+
+        long transferBytesLong =
+            (long)sectorCount *
+            logicalBlockSize;
+
+        if (
+            transferBytesLong >
+            Integer.MAX_VALUE
+        ) {
+            throw new IllegalArgumentException(
+                "READ(10) transfer is too large."
+            );
+        }
+
+        byte[] cdb =
+            new byte[10];
+
+        cdb[0] =
+            (byte)SCSI_READ_10;
+
+        putBe32(
+            cdb,
+            2,
+            lba
+        );
+
+        putBe16(
+            cdb,
+            7,
+            sectorCount
+        );
+
+        return createCbw(
+            tag,
+            (int)transferBytesLong,
+            BOT_DIRECTION_IN,
             0,
             cdb,
             10
@@ -2040,6 +2107,245 @@ public final class UsbVentoy {
 
         lastError = "";
         return true;
+    }
+
+    /**
+     * Reads sectorCount blocks starting at startLba into out, using a single
+     * READ(10) command. out.length must be exactly sectorCount * blockSize.
+     */
+    public synchronized boolean readBlocks(
+        long startLba,
+        byte[] out,
+        int sectorCount
+    ) {
+
+        if (!isOpen()) {
+
+            fail(
+                ERROR_OPEN_DEVICE,
+                "USB Mass Storage device is not open."
+            );
+
+            return false;
+        }
+
+        if (
+            out == null ||
+            sectorCount <= 0 ||
+            blockSize <= 0
+        ) {
+
+            fail(
+                ERROR_ARGUMENT,
+                "Invalid READ(10) buffer."
+            );
+
+            return false;
+        }
+
+        if (
+            (long)sectorCount * blockSize !=
+            out.length
+        ) {
+
+            fail(
+                ERROR_ARGUMENT,
+                "Buffer length does not match sectorCount * blockSize."
+            );
+
+            return false;
+        }
+
+        long lastLba =
+            startLba +
+            sectorCount -
+            1L;
+
+        if (
+            startLba < 0 ||
+            sectorCount > MAX_WRITE10_BLOCKS ||
+            lastLba > MAX_WRITE10_LBA
+        ) {
+
+            fail(
+                ERROR_UNSUPPORTED_CAPACITY,
+                "READ(10) range is outside the 32-bit LBA limits."
+            );
+
+            return false;
+        }
+
+        if (
+            blockCount > 0 &&
+            lastLba >= blockCount
+        ) {
+
+            fail(
+                ERROR_ARGUMENT,
+                "READ(10) crosses the end of the USB device."
+            );
+
+            return false;
+        }
+
+        int tag =
+            allocateTag();
+
+        byte[] cbw;
+
+        try {
+
+            cbw =
+                createRead10Cbw(
+                    tag,
+                    startLba,
+                    sectorCount,
+                    blockSize
+                );
+
+        } catch (
+            IllegalArgumentException e
+        ) {
+
+            fail(
+                ERROR_ARGUMENT,
+                e.getMessage()
+            );
+
+            return false;
+        }
+
+        if (
+            bulkOutAll(
+                cbw,
+                0,
+                cbw.length
+            ) != cbw.length
+        ) {
+
+            fail(
+                ERROR_SCSI,
+                "READ(10) CBW could not be sent. lba=" +
+                startLba +
+                ", sectors=" + sectorCount
+            );
+
+            return false;
+        }
+
+        if (
+            bulkInAll(
+                out,
+                0,
+                out.length
+            ) != out.length
+        ) {
+
+            fail(
+                ERROR_IO,
+                "READ(10) data stage failed. lba=" +
+                startLba +
+                ", sectors=" + sectorCount
+            );
+
+            return false;
+        }
+
+        if (
+            !readAndValidateCsw(
+                tag
+            )
+        ) {
+
+            Log.e(
+                TAG,
+                "READ(10) CSW validation failed. lba=" +
+                startLba +
+                ", sectors=" + sectorCount +
+                ", error=" + lastError
+            );
+
+            return false;
+        }
+
+        lastError = "";
+        return true;
+    }
+
+    /**
+     * Reads an arbitrary number of blocks and returns them, or null on
+     * failure (see getLastError()). Large requests are split into 64 KiB
+     * READ(10) commands.
+     */
+    public synchronized byte[] readData(
+        long startLba,
+        int sectorCount
+    ) {
+
+        if (
+            sectorCount <= 0 ||
+            blockSize <= 0 ||
+            (long)sectorCount * blockSize >
+                Integer.MAX_VALUE
+        ) {
+
+            fail(
+                ERROR_ARGUMENT,
+                "Invalid read size."
+            );
+
+            return null;
+        }
+
+        byte[] result =
+            new byte[
+                sectorCount *
+                blockSize
+            ];
+
+        int done =
+            0;
+
+        while (done < sectorCount) {
+
+            int blocks =
+                Math.min(
+                    DEFAULT_TRANSFER_BLOCKS,
+                    sectorCount -
+                    done
+                );
+
+            byte[] chunk =
+                new byte[
+                    blocks *
+                    blockSize
+                ];
+
+            if (
+                !readBlocks(
+                    startLba +
+                    done,
+                    chunk,
+                    blocks
+                )
+            ) {
+                return null;
+            }
+
+            System.arraycopy(
+                chunk,
+                0,
+                result,
+                done *
+                blockSize,
+                chunk.length
+            );
+
+            done +=
+                blocks;
+        }
+
+        return result;
     }
 
     /**

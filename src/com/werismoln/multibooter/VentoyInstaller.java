@@ -39,6 +39,7 @@ public final class VentoyInstaller {
     public static final int ERROR_WRITE = -105;
     public static final int ERROR_FORMAT = -106;
     public static final int ERROR_SYNC = -107;
+    public static final int ERROR_CANCELLED = -108;
 
     /*
      * Ventoy default MBR layout:
@@ -119,6 +120,25 @@ public final class VentoyInstaller {
         return lastError;
     }
 
+    /** Thrown from progress() when the user asked to stop. */
+    private static final class CancelledException
+        extends RuntimeException {
+    }
+
+    private volatile boolean cancelRequested =
+        false;
+
+    /**
+     * Asks a running install() to stop at the next progress step. The USB
+     * drive is left incomplete. Steps after 97% (cache sync, backup GPT) are
+     * never interrupted.
+     */
+    public void cancel() {
+
+        cancelRequested =
+            true;
+    }
+
     private int fail(
         int code,
         String message
@@ -138,6 +158,14 @@ public final class VentoyInstaller {
         String message
     ) {
 
+        if (
+            cancelRequested &&
+            percent < 97
+        ) {
+
+            throw new CancelledException();
+        }
+
         if (listener == null) {
             return;
         }
@@ -153,7 +181,27 @@ public final class VentoyInstaller {
         ProgressListener listener
     ) {
 
+        return install(
+            device,
+            false,
+            listener
+        );
+    }
+
+    /**
+     * Installs Ventoy.
+     *
+     * @param gpt true for a GPT disk, false for an MBR disk
+     */
+    public int install(
+        UsbDevice device,
+        boolean gpt,
+        ProgressListener listener
+    ) {
+
         lastError = "";
+
+        cancelRequested = false;
 
         if (device == null) {
 
@@ -212,7 +260,7 @@ public final class VentoyInstaller {
 
                 return fail(
                     ERROR_UNSUPPORTED_MEDIA,
-                    "Ventoy MBR installation currently requires a 512-byte logical sector size."
+                    "Ventoy installation currently requires a 512-byte logical sector size."
                 );
             }
 
@@ -220,7 +268,11 @@ public final class VentoyInstaller {
                 usb.getBlockCount();
 
             Layout layout =
-                calculateLayout(
+                gpt
+                ? calculateGptLayout(
+                    totalSectors
+                )
+                : calculateLayout(
                     totalSectors
                 );
 
@@ -276,33 +328,94 @@ public final class VentoyInstaller {
                 diskUuid
             );
 
-            byte[] mbr =
-                buildMbr(
-                    bootImage,
-                    diskUuid,
-                    layout
+            SecureRandom random =
+                new SecureRandom();
+
+            byte[] diskGuid =
+                new byte[16];
+
+            byte[] guid1 =
+                new byte[16];
+
+            byte[] guid2 =
+                new byte[16];
+
+            random.nextBytes(diskGuid);
+            random.nextBytes(guid1);
+            random.nextBytes(guid2);
+
+            VentoyGpt.Layout gptLayout =
+                null;
+
+            if (gpt) {
+
+                gptLayout =
+                    VentoyGpt.calculateLayout(
+                        layout.totalSectors
+                    );
+
+                byte[] primary =
+                    VentoyGpt.buildPrimary(
+                        bootImage,
+                        diskUuid,
+                        diskGuid,
+                        guid1,
+                        guid2,
+                        gptLayout
+                    );
+
+                progress(
+                    listener,
+                    10,
+                    "Writing GPT partition table..."
                 );
 
-            progress(
-                listener,
-                10,
-                "Writing MBR partition table..."
-            );
-
-            if (
-                !usb.writeData(
-                    0,
-                    mbr
-                )
-            ) {
-
-                return fail(
-                    ERROR_WRITE,
-                    prefixError(
-                        "Could not write Ventoy MBR",
-                        usb.getLastError()
+                if (
+                    !usb.writeData(
+                        0,
+                        primary
                     )
+                ) {
+
+                    return fail(
+                        ERROR_WRITE,
+                        prefixError(
+                            "Could not write Ventoy GPT",
+                            usb.getLastError()
+                        )
+                    );
+                }
+
+            } else {
+
+                byte[] mbr =
+                    buildMbr(
+                        bootImage,
+                        diskUuid,
+                        layout
+                    );
+
+                progress(
+                    listener,
+                    10,
+                    "Writing MBR partition table..."
                 );
+
+                if (
+                    !usb.writeData(
+                        0,
+                        mbr
+                    )
+                ) {
+
+                    return fail(
+                        ERROR_WRITE,
+                        prefixError(
+                            "Could not write Ventoy MBR",
+                            usb.getLastError()
+                        )
+                    );
+                }
             }
 
             progress(
@@ -346,22 +459,77 @@ public final class VentoyInstaller {
                 "Writing Ventoy BIOS bootloader..."
             );
 
-            int coreResult =
-                writeAssetExact(
-                    usb,
-                    ASSET_CORE,
-                    1L,
-                    CORE_BYTES,
-                    40,
+            if (gpt) {
+
+                /*
+                 * In GPT mode GRUB stage 1 starts at LBA 34 (right after the
+                 * GPT) and its first sector must point at LBA 35.
+                 */
+                byte[] core;
+
+                try {
+
+                    core =
+                        VentoyGpt.buildCore(
+                            readExactAsset(
+                                ASSET_CORE,
+                                CORE_BYTES
+                            )
+                        );
+
+                } catch (
+                    IOException |
+                    IllegalArgumentException e
+                ) {
+
+                    return fail(
+                        ERROR_ASSET,
+                        "Could not read the Ventoy boot image: " +
+                        safeMessage(e)
+                    );
+                }
+
+                if (
+                    !usb.writeData(
+                        VentoyGpt.CORE_START_LBA,
+                        core
+                    )
+                ) {
+
+                    return fail(
+                        ERROR_WRITE,
+                        prefixError(
+                            "Could not write the Ventoy BIOS bootloader",
+                            usb.getLastError()
+                        )
+                    );
+                }
+
+                progress(
+                    listener,
                     55,
-                    listener
+                    "Ventoy BIOS bootloader written."
                 );
 
-            if (
-                coreResult !=
-                RESULT_OK
-            ) {
-                return coreResult;
+            } else {
+
+                int coreResult =
+                    writeAssetExact(
+                        usb,
+                        ASSET_CORE,
+                        1L,
+                        CORE_BYTES,
+                        40,
+                        55,
+                        listener
+                    );
+
+                if (
+                    coreResult !=
+                    RESULT_OK
+                ) {
+                    return coreResult;
+                }
             }
 
             progress(
@@ -401,6 +569,16 @@ public final class VentoyInstaller {
                 layout.totalSectors -
                 trailingStart;
 
+            if (gpt) {
+
+                /*
+                 * The last 33 sectors hold the backup GPT; only the gap
+                 * between VTOYEFI and the backup is cleared here.
+                 */
+                trailingSectors -=
+                    VentoyGpt.BACKUP_SECTORS;
+            }
+
             if (
                 trailingSectors > 0
             ) {
@@ -425,6 +603,40 @@ public final class VentoyInstaller {
                         ERROR_WRITE,
                         prefixError(
                             "Could not clear trailing partition-table sectors",
+                            usb.getLastError()
+                        )
+                    );
+                }
+            }
+
+            if (gpt) {
+
+                progress(
+                    listener,
+                    96,
+                    "Writing backup GPT..."
+                );
+
+                byte[] backup =
+                    VentoyGpt.buildBackup(
+                        diskGuid,
+                        guid1,
+                        guid2,
+                        gptLayout
+                    );
+
+                if (
+                    !usb.writeData(
+                        layout.totalSectors -
+                        VentoyGpt.BACKUP_SECTORS,
+                        backup
+                    )
+                ) {
+
+                    return fail(
+                        ERROR_WRITE,
+                        prefixError(
+                            "Could not write the backup GPT",
                             usb.getLastError()
                         )
                     );
@@ -460,10 +672,90 @@ public final class VentoyInstaller {
 
             return RESULT_OK;
 
+        } catch (
+            CancelledException e
+        ) {
+
+            return fail(
+                ERROR_CANCELLED,
+                "Installation was stopped. The USB drive is incomplete."
+            );
+
         } finally {
 
             usb.close();
         }
+    }
+
+    private Layout calculateGptLayout(
+        long totalSectors
+    ) {
+
+        if (
+            totalSectors <= 0
+        ) {
+
+            fail(
+                ERROR_LAYOUT,
+                "USB capacity is invalid."
+            );
+
+            return null;
+        }
+
+        /*
+         * The USB code uses 10-byte SCSI commands (32-bit LBA), and the
+         * backup GPT lives at the very end of the disk.
+         */
+        if (
+            totalSectors >
+            MAX_MBR_SECTORS
+        ) {
+
+            fail(
+                ERROR_UNSUPPORTED_MEDIA,
+                "The USB drive is larger than 2 TiB. Larger media need 16-byte SCSI commands, which are not supported yet."
+            );
+
+            return null;
+        }
+
+        VentoyGpt.Layout gptLayout =
+            VentoyGpt.calculateLayout(
+                totalSectors
+            );
+
+        if (
+            gptLayout == null
+        ) {
+
+            fail(
+                ERROR_LAYOUT,
+                "USB drive is too small for the Ventoy partition layout."
+            );
+
+            return null;
+        }
+
+        Layout layout =
+            new Layout();
+
+        layout.totalSectors =
+            totalSectors;
+
+        layout.part1Start =
+            gptLayout.part1Start;
+
+        layout.part1Sectors =
+            gptLayout.part1Sectors;
+
+        layout.part2Start =
+            gptLayout.part2Start;
+
+        layout.part2Sectors =
+            gptLayout.part2Sectors;
+
+        return layout;
     }
 
     private Layout calculateLayout(

@@ -13,7 +13,7 @@
     
     <Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.3" />
     
-    <TextView android:id="@+id/desc2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Please grant root access for and TFTP server mode and USB gadget mode to boot directly from device." android:textColor="#D0E8FF" android:textSize="16sp" android:gravity="center" android:paddingStart="16dp" android:paddingEnd="16dp" />
+    <TextView android:id="@+id/desc2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Root is only needed for the TFTP server, USB Gadget and FunctionFS modes. You can skip this and still use Ventoy and the ISO writer." android:textColor="#D0E8FF" android:textSize="16sp" android:gravity="center" android:paddingStart="16dp" android:paddingEnd="16dp" />
     
     <Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1.2" />
     

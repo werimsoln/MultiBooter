@@ -128,6 +128,16 @@ public class FunctionFsActivity extends BaseActivity {
             )
         ) {
 
+            if (!ModeService.isActive(ModeService.MODE_FUNCTIONFS)) {
+
+                ModeService.begin(
+                    getApplicationContext(),
+                    ModeService.MODE_FUNCTIONFS,
+                    "Virtual CD-ROM is active",
+                    stopHook(getApplicationContext())
+                );
+            }
+
             showActivePage();
 
         } else {
@@ -150,6 +160,61 @@ public class FunctionFsActivity extends BaseActivity {
         if (isoUri != null) {
             outState.putString("selected_iso_uri", isoUri.toString());
             outState.putString("selected_iso_label", isoUriLabel);
+        }
+    }
+
+        /** Stops FunctionFS. Used by the notification "Stop" action. */
+    private static ModeService.StopHook stopHook(final android.content.Context app) {
+
+        return new ModeService.StopHook() {
+
+            @Override
+            public void stop() {
+
+                boolean ok =
+                    FunctionFileSystem.stop(app);
+
+                String error =
+                    FunctionFileSystem.getLastError();
+
+                if (ok) {
+
+                    ModeService.end(
+                        app,
+                        ModeService.MODE_FUNCTIONFS,
+                        true,
+                        "FunctionFS stopped."
+                    );
+
+                } else {
+
+                    ModeService.begin(
+                        app,
+                        ModeService.MODE_FUNCTIONFS,
+                        "Could not stop: " +
+                        (error.length() == 0 ? "unknown error" : error),
+                        stopHook(app)
+                    );
+                }
+            }
+        };
+    }
+
+    @Override
+    protected void onResume() {
+
+        super.onResume();
+
+        // FunctionFS may have been stopped from the notification.
+        if (
+            activePage &&
+            !operationRunning &&
+            !FunctionFileSystem.hasSavedActiveSession(
+                this
+            )
+        ) {
+
+            showSetupPage();
         }
     }
 
@@ -879,6 +944,13 @@ public class FunctionFsActivity extends BaseActivity {
             true
         );
 
+        ModeService.begin(
+            getApplicationContext(),
+            ModeService.MODE_FUNCTIONFS,
+            "Starting FunctionFS...",
+            stopHook(getApplicationContext())
+        );
+
         new Thread(
             new Runnable() {
 
@@ -894,6 +966,27 @@ public class FunctionFsActivity extends BaseActivity {
 
                     final String error =
                         FunctionFileSystem.getLastError();
+
+                    if (success) {
+
+                        ModeService.progress(
+                            getApplicationContext(),
+                            ModeService.MODE_FUNCTIONFS,
+                            -1,
+                            "Virtual CD-ROM is active"
+                        );
+
+                    } else {
+
+                        ModeService.end(
+                            getApplicationContext(),
+                            ModeService.MODE_FUNCTIONFS,
+                            false,
+                            error.length() == 0
+                                ? "FunctionFS could not be started."
+                                : error
+                        );
+                    }
 
                     runOnUiThread(
                         new Runnable() {
@@ -1203,6 +1296,16 @@ public class FunctionFsActivity extends BaseActivity {
 
                     final String error =
                         FunctionFileSystem.getLastError();
+
+                    if (success) {
+
+                        ModeService.end(
+                            getApplicationContext(),
+                            ModeService.MODE_FUNCTIONFS,
+                            true,
+                            "FunctionFS stopped."
+                        );
+                    }
 
                     runOnUiThread(
                         new Runnable() {

@@ -62,7 +62,15 @@ JNIEXPORT jboolean JNICALL
 Java_com_werismoln_multibooter_UsbGadget_enableMassStorageNative(
         JNIEnv *env, jclass clazz, jstring isoPath, jboolean asCdRom) {
 
+    if (isoPath == NULL) {
+        return JNI_FALSE;
+    }
+
     const char *iso_c_str = (*env)->GetStringUTFChars(env, isoPath, NULL);
+    if (iso_c_str == NULL) {
+        return JNI_FALSE;
+    }
+
     const char *cdrom_flag = asCdRom ? "1" : "0";
     char udc_name[128] = {0};
 
