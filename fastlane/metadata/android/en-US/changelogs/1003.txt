@@ -1,5 +1,6 @@
 - Notifications with progress and a Stop button for ISO writing, Ventoy, USB Gadget, FunctionFS and TFTP; modes keep running in the background
 - Ventoy: MBR or GPT, and detection of the Ventoy version already on the drive
+- Ventoy: Fixed Ventoy ExFAT partition label defaulting to "disk"
 - All permissions are now optional
 - Removed the internet and storage permissions
 - Root is re-checked when the boot screen opens

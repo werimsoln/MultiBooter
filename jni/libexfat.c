@@ -103,6 +103,17 @@ typedef uint16_t WCHAR;
 
 #define EXFAT_ENTRY_ALLOCATION_BITMAP   0x81u
 #define EXFAT_ENTRY_UPCASE_TABLE        0x82u
+#define EXFAT_ENTRY_VOLUME_LABEL        0x83u
+
+/* A volume label holds at most 11 UTF-16 characters. */
+#define EXFAT_VOLUME_LABEL_MAX_CHARS    11u
+
+/*
+ * Label of every volume created by this formatter. Ventoy names its data
+ * partition "Ventoy"; without a Volume Label directory entry the operating
+ * system falls back to a generic name such as "disk".
+ */
+#define EXFAT_DEFAULT_VOLUME_LABEL      "Ventoy"
 
 #define EXFAT_UPCASE_CODE_UNITS         65536u
 #define EXFAT_UPCASE_DATA_LENGTH        ((uint64_t)EXFAT_UPCASE_CODE_UNITS * 2u)
@@ -1801,6 +1812,49 @@ static void exfat_init_upcase_entry(
         );
 }
 
+/*
+ * Builds a Volume Label directory entry (EntryType 83h):
+ *
+ *   byte  0      EntryType      = 83h
+ *   byte  1      CharacterCount = 0..11
+ *   bytes 2..23  VolumeLabel    = up to 11 UTF-16LE code units
+ *   bytes 24..31 Reserved       = 0
+ *
+ * Only ASCII labels are supported, which is all the default label needs.
+ */
+static void exfat_init_volume_label_entry(
+    uint8_t entry[32],
+    const char *label
+)
+{
+    uint32_t count = 0u;
+
+    memset(
+        entry,
+        0,
+        32u
+    );
+
+    entry[0] =
+        (uint8_t)EXFAT_ENTRY_VOLUME_LABEL;
+
+    while (
+        label[count] != '\0' &&
+        count < EXFAT_VOLUME_LABEL_MAX_CHARS
+    ) {
+        entry[2u + (count * 2u)] =
+            (uint8_t)label[count];
+
+        entry[3u + (count * 2u)] =
+            0u;
+
+        count++;
+    }
+
+    entry[1] =
+        (uint8_t)count;
+}
+
 static int exfat_write_root_directory(
     const exfat_io *io,
     const exfat_format_options *options,
@@ -1842,9 +1896,10 @@ static int exfat_write_root_directory(
      *
      *   DirectoryEntry[0] = Allocation Bitmap
      *   DirectoryEntry[1] = Up-case Table
-     *   DirectoryEntry[2] = 00h end-of-directory marker
+     *   DirectoryEntry[2] = Volume Label
+     *   DirectoryEntry[3] = 00h end-of-directory marker
      *
-     * calloc() leaves the third and all subsequent entries zero.
+     * calloc() leaves the fourth and all subsequent entries zero.
      */
     memcpy(
         sector_buffer,
@@ -1852,11 +1907,17 @@ static int exfat_write_root_directory(
         sizeof(bitmap_entry)
     );
 
-    memcpy(
+        memcpy(
         sector_buffer + 32u,
         &upcase_entry,
         sizeof(upcase_entry)
     );
+
+    exfat_init_volume_label_entry(
+        sector_buffer + 64u,
+        EXFAT_DEFAULT_VOLUME_LABEL
+    );
+
 
     start_sector =
         exfat_cluster_to_volume_sector(
