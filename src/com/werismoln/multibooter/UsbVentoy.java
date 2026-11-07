@@ -357,6 +357,12 @@ public final class UsbVentoy {
         String message
     ) {
 
+        DebugLog.e(
+            DebugLog.Module.USB,
+            "USB error (" + code + "): " + message
+        );
+
+
         lastError =
             message == null
             ? ""

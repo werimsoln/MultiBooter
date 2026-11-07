@@ -181,6 +181,27 @@
         android:layout_height="0dp"
         android:layout_weight="1" />
 
+    <Button
+        android:id="@+id/ventoy_analyze_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:text="ANALYZE DRIVE (PARTITIONS, FREE SPACE, ISO LIST)"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:backgroundTint="#1E5A96" />
+
+    <Button
+        android:id="@+id/ventoy_update_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"
+        android:text="UPDATE VENTOY (KEEP MY FILES)"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:backgroundTint="#0F766E" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

@@ -225,6 +225,10 @@ rm -f src/main/assets/ffs_gadget
 rm -f src/main/assets/dnsmasq
 rm -f src/main/assets/ventoy.disk.img.sha256
 
+# The Ventoy version that is packaged, shown in the app and used to decide
+# between "update" and "downgrade" for a drive that already has Ventoy.
+printf '%s\n' "$VENTOY_VERSION" > src/main/assets/ventoy.version
+
 # Never delete the checked-in ventoy.disk.img before its upstream reference hash
 # has been verified below in step [4/15].
 

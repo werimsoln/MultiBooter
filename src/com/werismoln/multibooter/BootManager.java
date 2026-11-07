@@ -356,10 +356,10 @@ public class BootManager extends BaseActivity {
                 closeDrawerImmediately();
 
                 Intent settingsIntent =
-                new Intent(
-                    BootManager.this,
-                    SettingsActivity.class
-                );
+                    new Intent(
+                        BootManager.this,
+                        com.werismoln.multibooter.settings.ControlCenterActivity.class
+                    );
 
                     startActivity(
                     settingsIntent

@@ -123,7 +123,7 @@ public class GadgetActivity extends BaseActivity {
     }
 
         /** Disables the gadget. Used by the notification "Stop" action. */
-    private static ModeService.StopHook stopHook(final android.content.Context app) {
+    static ModeService.StopHook stopHook(final android.content.Context app) {
 
         return new ModeService.StopHook() {
 
@@ -257,6 +257,31 @@ public class GadgetActivity extends BaseActivity {
             findViewById(
                 R.id.gadget_select_image
             );
+
+        Button virtualUsb =
+            (Button)
+            findViewById(
+                R.id.gadget_virtual_usb
+            );
+
+        if (virtualUsb != null) {
+
+            virtualUsb.setOnClickListener(
+                new View.OnClickListener() {
+
+                    @Override
+                    public void onClick(View v) {
+
+                        startActivity(
+                            new Intent(
+                                GadgetActivity.this,
+                                VirtualUsbActivity.class
+                            )
+                        );
+                    }
+                }
+            );
+        }
 
         Button checkSupport =
             (Button)

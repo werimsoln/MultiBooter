@@ -21,6 +21,11 @@
 package com.werismoln.multibooter;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+
+import com.werismoln.multibooter.settings.SettingsManager;
+import com.werismoln.multibooter.settings.ThemeManager;
 import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
@@ -37,23 +42,76 @@ import android.view.WindowInsets;
  */
 public class BaseActivity extends Activity {
 
+    /** Appearance settings version this screen was built with. */
+    private int appearanceVersion;
+
+    @Override
+    protected void attachBaseContext(Context newBase) {
+        // Font scale setting.
+        super.attachBaseContext(ThemeManager.withFontScale(newBase));
+    }
+
+    @Override
+    protected void onCreate(android.os.Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        DebugLog.init(this);
+        appearanceVersion = SettingsManager.appearanceVersion();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // The theme, accent or font scale was changed on another screen.
+        if (appearanceVersion != SettingsManager.appearanceVersion()) {
+            appearanceVersion = SettingsManager.appearanceVersion();
+            recreate();
+        }
+    }
+
     @Override
     public void setContentView(int layoutResID) {
         super.setContentView(layoutResID);
         applyWindowInsets();
+        applyTheme();
     }
 
     @Override
     public void setContentView(View view) {
         super.setContentView(view);
         applyWindowInsets();
+        applyTheme();
     }
 
     @Override
     public void setContentView(View view, ViewGroup.LayoutParams params) {
         super.setContentView(view, params);
         applyWindowInsets();
+        applyTheme();
     }
+
+    private void applyTheme() {
+        ThemeManager.apply(this, findViewById(android.R.id.content));
+    }
+
+    @Override
+    public void startActivity(Intent intent) {
+        super.startActivity(intent);
+
+        if (!ThemeManager.animationsEnabled(this)) {
+            overridePendingTransition(0, 0);
+        }
+    }
+
+    @Override
+    public void finish() {
+        super.finish();
+
+        if (!ThemeManager.animationsEnabled(this)) {
+            overridePendingTransition(0, 0);
+        }
+    }
+
 
     private void applyWindowInsets() {
         final View content = findViewById(android.R.id.content);

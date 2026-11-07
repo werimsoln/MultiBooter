@@ -1,0 +1,5 @@
+- New Settings Control Center: themes (incl. AMOLED), accent colors with HEX, font size, notification options, debug logs and diagnostic report
+- Write verification: reads the USB back and compares SHA-256, shows the exact bad sector
+- Ventoy: update an existing drive without losing files
+- Speed and time left while writing
+- Virtual USB drive (Ventoy or blank) and drive analysis: partitions, free space, ISO list

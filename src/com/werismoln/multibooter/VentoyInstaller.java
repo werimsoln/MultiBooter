@@ -125,8 +125,12 @@ public final class VentoyInstaller {
         extends RuntimeException {
     }
 
-    private volatile boolean cancelRequested =
+        private volatile boolean cancelRequested =
         false;
+
+    /** Highest progress percent at which cancel() still takes effect. */
+    private volatile int cancelLimit =
+        97;
 
     /**
      * Asks a running install() to stop at the next progress step. The USB
@@ -144,6 +148,12 @@ public final class VentoyInstaller {
         String message
     ) {
 
+        DebugLog.e(
+            DebugLog.Module.VENTOY,
+            "Failed (" + code + "): " + message
+        );
+
+
         lastError =
             message == null
             ? ""
@@ -158,9 +168,9 @@ public final class VentoyInstaller {
         String message
     ) {
 
-        if (
+                if (
             cancelRequested &&
-            percent < 97
+            percent < cancelLimit
         ) {
 
             throw new CancelledException();
@@ -174,6 +184,203 @@ public final class VentoyInstaller {
             percent,
             message
         );
+    }
+
+        /**
+     * Updates the Ventoy that is already on the drive: new boot code, new
+     * GRUB stage 1 and a new VTOYEFI partition. The partition table, the disk
+     * signature and every file on the data partition stay untouched.
+     *
+     * Stopping is only possible before the first byte is written; after that
+     * the update must finish or the drive would not boot.
+     */
+    public int update(
+        UsbDevice device,
+        ProgressListener listener
+    ) {
+
+        lastError = "";
+
+        cancelRequested = false;
+
+        cancelLimit = 11;
+
+        if (device == null) {
+            return fail(ERROR_ARGUMENT, "USB device is null.");
+        }
+
+        progress(listener, 2, "Opening USB device...");
+
+        final UsbVentoy usb = new UsbVentoy(context);
+
+        if (!usb.hasPermission(device)) {
+            return fail(ERROR_USB, "USB permission is not granted.");
+        }
+
+        int openResult = usb.open(device);
+
+        if (openResult != UsbVentoy.RESULT_OK) {
+
+            return fail(
+                ERROR_USB,
+                prefixError("Could not open USB device", usb.getLastError())
+            );
+        }
+
+        try {
+
+            if (usb.getBlockSize() != LOGICAL_SECTOR_SIZE) {
+
+                return fail(
+                    ERROR_UNSUPPORTED_MEDIA,
+                    "Ventoy update requires a 512-byte logical sector size."
+                );
+            }
+
+            progress(listener, 6, "Checking the Ventoy installation on the drive...");
+
+            VentoyDetector.Info info =
+                VentoyDetector.detect(
+                    new VentoyDetector.SectorReader() {
+
+                        @Override
+                        public byte[] read(long lba, int count)
+                            throws IOException {
+
+                            byte[] data = usb.readData(lba, count);
+
+                            if (data == null) {
+                                throw new IOException(usb.getLastError());
+                            }
+
+                            return data;
+                        }
+                    },
+                    usb.getBlockCount()
+                );
+
+            if (!info.layoutFound) {
+
+                return fail(
+                    ERROR_LAYOUT,
+                    "No Ventoy installation was found on this drive, so it " +
+                    "cannot be updated. Use Install instead."
+                );
+            }
+
+            byte[] oldSector0 = usb.readData(0, 1);
+
+            if (oldSector0 == null) {
+
+                return fail(
+                    ERROR_USB,
+                    prefixError(
+                        "Could not read the first sector",
+                        usb.getLastError()
+                    )
+                );
+            }
+
+            byte[] bootImage;
+            byte[] coreImage;
+
+            try {
+
+                bootImage = readExactAsset(ASSET_BOOT, BOOT_IMAGE_BYTES);
+                coreImage = readExactAsset(ASSET_CORE, CORE_BYTES);
+
+            } catch (IOException e) {
+
+                return fail(
+                    ERROR_ASSET,
+                    "Ventoy asset validation failed: " + safeMessage(e)
+                );
+            }
+
+            VentoyUpdater.Write[] bootArea =
+                VentoyUpdater.planBootArea(
+                    oldSector0,
+                    bootImage,
+                    coreImage,
+                    info.gpt
+                );
+
+            progress(
+                listener,
+                10,
+                "Updating Ventoy (" +
+                (info.gpt ? "GPT" : "MBR") +
+                "). Your files are not touched."
+            );
+
+            // From here on stopping is no longer possible.
+            progress(listener, 11, "Writing the Ventoy partition...");
+
+            cancelLimit = 0;
+
+            int efiResult =
+                writeAssetExact(
+                    usb,
+                    ASSET_VTOYEFI,
+                    info.part2Start,
+                    VTOYEFI_BYTES,
+                    12,
+                    90,
+                    listener
+                );
+
+            if (efiResult != RESULT_OK) {
+                return efiResult;
+            }
+
+            progress(listener, 97, "Writing the Ventoy boot code...");
+
+            // Stage 1 first, sector 0 last, so the old boot code stays in
+            // place until everything it needs has been replaced.
+            for (int i = bootArea.length - 1; i >= 0; i--) {
+
+                if (!usb.writeData(bootArea[i].lba, bootArea[i].data)) {
+
+                    return fail(
+                        ERROR_WRITE,
+                        prefixError(
+                            "Could not write the Ventoy boot code",
+                            usb.getLastError()
+                        )
+                    );
+                }
+            }
+
+            progress(listener, 98, "Synchronizing USB cache...");
+
+            if (!usb.synchronizeCache()) {
+
+                return fail(
+                    ERROR_SYNC,
+                    prefixError(
+                        "Ventoy was updated but USB cache synchronization failed",
+                        usb.getLastError()
+                    )
+                );
+            }
+
+            progress(listener, 100, "Ventoy update completed.");
+
+            lastError = "";
+
+            return RESULT_OK;
+
+        } catch (CancelledException e) {
+
+            return fail(
+                ERROR_CANCELLED,
+                "The update was stopped before anything was written."
+            );
+
+        } finally {
+
+            usb.close();
+        }
     }
 
     public int installMbr(
@@ -199,9 +406,11 @@ public final class VentoyInstaller {
         ProgressListener listener
     ) {
 
-        lastError = "";
+                lastError = "";
 
         cancelRequested = false;
+
+        cancelLimit = 97;
 
         if (device == null) {
 

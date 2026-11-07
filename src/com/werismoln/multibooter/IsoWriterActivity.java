@@ -45,6 +45,9 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+
+import com.werismoln.multibooter.settings.SettingsDefaults;
+import com.werismoln.multibooter.settings.SettingsManager;
 import android.widget.Toast;
 
 import java.io.IOException;
@@ -2205,7 +2208,12 @@ public class IsoWriterActivity extends BaseActivity {
                         ModeService.MODE_ISO,
                         result.success,
                         result.success
-                            ? "ISO was written successfully."
+                            ? (
+                                result.message.length() == 0
+                                    ? "ISO was written successfully."
+                                    : "ISO was written successfully. " +
+                                        result.message
+                            )
                             : (
                                 result.message.length() == 0
                                     ? "ISO writing failed."
@@ -2269,7 +2277,12 @@ public class IsoWriterActivity extends BaseActivity {
                                         formatBytes(
                                             sourceBytes
                                         ) +
-                                        " written successfully."
+                                        " written successfully." +
+                                        (
+                                            result.message.length() == 0
+                                                ? ""
+                                                : "\n" + result.message
+                                        )
                                     );
 
                                     write.setEnabled(
@@ -2492,12 +2505,38 @@ public class IsoWriterActivity extends BaseActivity {
 
             long currentLba =
                 0;
-
             long sourceBytesRead =
                 0;
-
             long startedAt =
                 System.nanoTime();
+
+            /*
+             * Write verification: while writing, a SHA-256 is kept for every
+             * 1 MiB block. After the cache flush the drive is read back and
+             * compared (see UsbVerifier). Controlled by
+             * Settings > USB Configuration > Write verification.
+             */
+            String verifyLevel =
+                SettingsManager.get(this).getString(
+                    SettingsDefaults.VERIFY_LEVEL
+                );
+
+            UsbVerifier.Recorder recorder =
+                SettingsDefaults.VERIFY_OFF.equals(verifyLevel)
+                    ? null
+                    : new UsbVerifier.Recorder(
+                        sourceSize,
+                        SettingsDefaults.VERIFY_PARTIAL.equals(verifyLevel)
+                            ? UsbVerifier.Mode.PARTIAL
+                            : UsbVerifier.Mode.FULL
+                    );
+
+            DebugLog.i(
+                DebugLog.Module.USB,
+                "ISO write started: size=" + sourceSize +
+                " block=" + blockSize +
+                " verify=" + verifyLevel
+            );
 
             postProgress(
                 progressBar,
@@ -2536,6 +2575,14 @@ public class IsoWriterActivity extends BaseActivity {
 
                 if (bytesRead == 0) {
                     break;
+                }
+
+                if (recorder != null) {
+                    recorder.update(
+                        buffer,
+                        0,
+                        bytesRead
+                    );
                 }
 
                 /*
@@ -2595,8 +2642,16 @@ public class IsoWriterActivity extends BaseActivity {
                     return new WriteResult(
                         false,
                         prefixError(
+                            (
+                                isDisconnected(targetDevice)
+                                    ? "The USB drive was disconnected. "
+                                    : ""
+                            ) +
                             "SCSI WRITE(10) failed at LBA " +
-                            currentLba,
+                            currentLba +
+                            " (byte offset " +
+                            (currentLba * blockSize) +
+                            ")",
                             usb.getLastError()
                         )
                     );
@@ -2659,14 +2714,18 @@ public class IsoWriterActivity extends BaseActivity {
                     bytesPerSecond >
                     0.0
                 ) {
-
                     detail +=
                         "  •  " +
                         formatRate(
                             bytesPerSecond
+                        ) +
+                        "  •  " +
+                        formatEta(
+                            sourceSize -
+                            sourceBytesRead,
+                            bytesPerSecond
                         );
                 }
-
                 postProgress(
                     progressBar,
                     progressText,
@@ -2719,11 +2778,54 @@ public class IsoWriterActivity extends BaseActivity {
                 );
             }
 
-            return new WriteResult(
-                true,
-                ""
+                        DebugLog.i(
+                DebugLog.Module.USB,
+                "ISO write finished, cache synchronized."
             );
 
+            String summary =
+                "The drive's write cache was flushed.";
+
+            if (recorder != null) {
+
+                WriteResult verified =
+                    verifyWrittenData(
+                        usb,
+                        recorder,
+                        sourceUri,
+                        sourceName,
+                        sourceSize,
+                        blockSize,
+                        targetDevice,
+                        progressBar,
+                        progressText,
+                        progressDetails
+                    );
+
+                if (verified != null) {
+                    return verified;
+                }
+
+                summary =
+                    lastVerifySummary +
+                    " " +
+                    summary;
+            }
+
+            if (
+                SettingsManager.get(this).getBoolean(
+                    SettingsDefaults.SAFE_EJECT_WARNING
+                )
+            ) {
+                summary +=
+                    " If the drive is plugged into a computer, eject it " +
+                    "there before unplugging.";
+            }
+
+            return new WriteResult(
+                true,
+                summary
+            );
         } catch (
             SecurityException e
         ) {
@@ -2769,6 +2871,259 @@ public class IsoWriterActivity extends BaseActivity {
 
             usb.close();
         }
+    }
+
+        /** Summary of the last successful verification, for the result text. */
+    private volatile String lastVerifySummary =
+        "";
+
+    /**
+     * Reads the written data back and compares it. Returns null when the
+     * data is verified, otherwise the failed result.
+     */
+    private WriteResult verifyWrittenData(
+        final UsbVentoy usb,
+        UsbVerifier.Recorder recorder,
+        final Uri sourceUri,
+        String sourceName,
+        long sourceSize,
+        final int blockSize,
+        UsbDevice targetDevice,
+        ProgressBar progressBar,
+        TextView progressText,
+        TextView progressDetails
+    ) {
+
+        final long toVerify =
+            UsbVerifier.bytesToVerify(
+                sourceSize,
+                recorder.mode()
+            );
+
+        final long verifyStart =
+            System.nanoTime();
+
+        final ProgressBar bar =
+            progressBar;
+
+        final TextView text =
+            progressText;
+
+        final TextView details =
+            progressDetails;
+
+        final String name =
+            sourceName;
+
+        postProgress(
+            bar,
+            text,
+            details,
+            0,
+            "Verifying " + name + "...",
+            "Reading the data back from the USB drive"
+        );
+
+        DebugLog.i(
+            DebugLog.Module.USB,
+            "Verification started: bytes=" + toVerify
+        );
+
+        UsbVerifier.Result result =
+            UsbVerifier.verify(
+                recorder,
+                new UsbVerifier.BlockReader() {
+
+                    @Override
+                    public void read(
+                        long lba,
+                        byte[] out,
+                        int sectors
+                    ) throws IOException {
+
+                        if (
+                            !usb.readBlocks(
+                                lba,
+                                out,
+                                sectors
+                            )
+                        ) {
+
+                            throw new IOException(
+                                (
+                                    isDisconnected(
+                                        usb.getDevice()
+                                    )
+                                        ? "USB drive disconnected. "
+                                        : ""
+                                ) +
+                                "READ(10) failed at LBA " +
+                                lba +
+                                " (byte offset " +
+                                (lba * blockSize) +
+                                "): " +
+                                usb.getLastError()
+                            );
+                        }
+                    }
+                },
+                blockSize,
+                new UsbVerifier.SourceOpener() {
+
+                    @Override
+                    public InputStream open() throws IOException {
+
+                        InputStream in =
+                            getContentResolver().openInputStream(
+                                sourceUri
+                            );
+
+                        if (in == null) {
+                            throw new IOException("Could not reopen the ISO.");
+                        }
+
+                        return in;
+                    }
+                },
+                new UsbVerifier.Progress() {
+
+                    @Override
+                    public void onProgress(
+                        long done,
+                        long total
+                    ) {
+
+                        double seconds =
+                            (System.nanoTime() - verifyStart) /
+                            1000000000.0;
+
+                        double rate =
+                            seconds <= 0.0
+                                ? 0.0
+                                : done / seconds;
+
+                        String detail =
+                            formatBytes(done) +
+                            " / " +
+                            formatBytes(total);
+
+                        if (rate > 0.0) {
+
+                            detail +=
+                                "  •  " +
+                                formatRate(rate) +
+                                "  •  " +
+                                formatEta(total - done, rate);
+                        }
+
+                        postProgress(
+                            bar,
+                            text,
+                            details,
+                            (int) Math.min(
+                                99L,
+                                (done * 100L) / Math.max(1L, total)
+                            ),
+                            "Verifying " + name + "...",
+                            detail
+                        );
+                    }
+
+                    @Override
+                    public boolean cancelled() {
+
+                        return sCancelRequested;
+                    }
+                }
+            );
+
+        DebugLog.log(
+            result.ok ? DebugLog.INFO : DebugLog.WARN,
+            DebugLog.Module.USB,
+            "Verification finished: ok=" + result.ok +
+            " - " + result.message,
+            null
+        );
+
+        if (result.ok) {
+
+            lastVerifySummary =
+                result.sha256.length() > 0
+                    ? "Verified: all data read back matches (SHA-256 " +
+                        result.sha256.substring(0, 16) + "...)."
+                    : "Verified: " + result.message;
+
+            return null;
+        }
+
+        if (result.cancelled) {
+
+            return new WriteResult(
+                false,
+                "Verification was stopped. The ISO was written, but it was " +
+                "not fully verified."
+            );
+        }
+
+        return new WriteResult(
+            false,
+            "The ISO was written, but verification failed. " +
+            result.message
+        );
+    }
+
+    private boolean isDisconnected(UsbDevice device) {
+
+        if (device == null) {
+            return false;
+        }
+
+        UsbManager manager =
+            (UsbManager)
+            getSystemService(
+                Context.USB_SERVICE
+            );
+
+        return
+            manager != null &&
+            !manager.getDeviceList().containsKey(
+                device.getDeviceName()
+            );
+    }
+
+    private static String formatEta(
+        long remainingBytes,
+        double bytesPerSecond
+    ) {
+
+        if (bytesPerSecond <= 0.0 || remainingBytes <= 0) {
+            return "0:00 left";
+        }
+
+        long seconds =
+            (long) (remainingBytes / bytesPerSecond);
+
+        long hours = seconds / 3600;
+        long minutes = (seconds % 3600) / 60;
+        long secs = seconds % 60;
+
+        if (hours > 0) {
+
+            return String.format(
+                java.util.Locale.US,
+                "%d:%02d:%02d left",
+                hours,
+                minutes,
+                secs
+            );
+        }
+
+        return String.format(
+            java.util.Locale.US,
+            "%d:%02d left",
+            minutes,
+            secs
+        );
     }
 
     private void postProgress(

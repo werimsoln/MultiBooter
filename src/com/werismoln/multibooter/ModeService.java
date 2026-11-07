@@ -36,6 +36,9 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.werismoln.multibooter.settings.SettingsDefaults;
+import com.werismoln.multibooter.settings.SettingsManager;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -114,7 +117,10 @@ public final class ModeService extends Service {
 
     private static final String TAG = "ModeService";
 
-    private static final String CHANNEL_ID = "multibooter_modes";
+        private static final String CHANNEL_ID = "multibooter_modes";
+    private static final String RESULT_CHANNEL_ID = "multibooter_results";
+    private static final String RESULT_VIBRATE_CHANNEL_ID =
+        "multibooter_results_vibrate";
 
     private static final String ACTION_SYNC =
         "com.werismoln.multibooter.action.SYNC";
@@ -166,7 +172,14 @@ public final class ModeService extends Service {
         StopHook hook
     ) {
 
-        Context app = context.getApplicationContext();
+                Context app = context.getApplicationContext();
+
+        DebugLog.init(app);
+
+        DebugLog.i(
+            DebugLog.Module.JAVA,
+            "Mode started: " + titleOf(mode) + " - " + text
+        );
 
         synchronized (STATES) {
 
@@ -323,13 +336,28 @@ public final class ModeService extends Service {
         String message
     ) {
 
-        Context app = context.getApplicationContext();
+                Context app = context.getApplicationContext();
+
+        DebugLog.init(app);
+
+        DebugLog.log(
+            success ? DebugLog.INFO : DebugLog.WARN,
+            DebugLog.Module.JAVA,
+            "Mode ended: " + titleOf(mode) + " success=" + success + " - " + message,
+            null
+        );
 
         boolean wasRunning;
 
+
         synchronized (STATES) {
 
-            wasRunning = STATES.remove(mode) != null;
+                        wasRunning = STATES.remove(mode) != null;
+
+            if (wasRunning) {
+                OperationHistory.add(app, mode, success, message);
+            }
+
 
             RESULTS.put(
                 mode,
@@ -704,7 +732,35 @@ public final class ModeService extends Service {
 
         channel.setShowBadge(false);
 
-        manager.createNotificationChannel(channel);
+                manager.createNotificationChannel(channel);
+
+        // Result notifications. A channel's vibration cannot be changed after
+        // it was created, so there is one channel with and one without.
+        NotificationChannel quiet =
+            new NotificationChannel(
+                RESULT_CHANNEL_ID,
+                "Results",
+                NotificationManager.IMPORTANCE_LOW
+            );
+
+        quiet.setDescription("Shown when ISO writing or Ventoy installation ends.");
+        quiet.setShowBadge(false);
+
+        manager.createNotificationChannel(quiet);
+
+        NotificationChannel buzz =
+            new NotificationChannel(
+                RESULT_VIBRATE_CHANNEL_ID,
+                "Results (vibrate)",
+                NotificationManager.IMPORTANCE_DEFAULT
+            );
+
+        buzz.setDescription("Same as Results, with vibration.");
+        buzz.enableVibration(true);
+        buzz.setSound(null, null);
+        buzz.setShowBadge(false);
+
+        manager.createNotificationChannel(buzz);
     }
 
     private Notification.Builder newBuilder() {
@@ -727,13 +783,15 @@ public final class ModeService extends Service {
 
     private Notification buildNotification(State state) {
 
+                SettingsManager settings = SettingsManager.get(this);
+
         Notification.Builder builder = newBuilder();
 
         builder
             .setSmallIcon(R.drawable.ic_stat_mode)
             .setContentTitle(titleOf(state.mode))
             .setContentText(state.text)
-            .setOngoing(true)
+            .setOngoing(settings.getBoolean(SettingsDefaults.NOTIFY_PERSISTENT))
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setCategory(Notification.CATEGORY_PROGRESS)
@@ -746,7 +804,10 @@ public final class ModeService extends Service {
             );
         }
 
-        if (state.percent >= 0) {
+                if (
+            state.percent >= 0 &&
+            settings.getBoolean(SettingsDefaults.NOTIFY_PROGRESS)
+        ) {
 
             builder.setProgress(100, state.percent, false);
 
@@ -790,12 +851,34 @@ public final class ModeService extends Service {
             (NotificationManager)
             getSystemService(Context.NOTIFICATION_SERVICE);
 
-        if (manager == null) {
+                if (manager == null) {
             return;
         }
 
+        SettingsManager settings = SettingsManager.get(this);
+
+        if (
+            !settings.getBoolean(
+                success
+                ? SettingsDefaults.NOTIFY_COMPLETION
+                : SettingsDefaults.NOTIFY_ERROR
+            )
+        ) {
+            return;
+        }
+
+        Notification.Builder resultBuilder =
+            Build.VERSION.SDK_INT >= 26
+            ? new Notification.Builder(
+                this,
+                settings.getBoolean(SettingsDefaults.NOTIFY_VIBRATE)
+                    ? RESULT_VIBRATE_CHANNEL_ID
+                    : RESULT_CHANNEL_ID
+            )
+            : new Notification.Builder(this);
+
         Notification notification =
-            newBuilder()
+            resultBuilder
                 .setSmallIcon(R.drawable.ic_stat_mode)
                 .setContentTitle(
                     titleOf(mode) +

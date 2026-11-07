@@ -28,6 +28,8 @@
 | **USB Gadget** | Makes your phone act as a USB drive or CD-ROM (ConfigFS) | Yes |
 | **FunctionFS** | Userspace USB Mass Storage / virtual CD-ROM | Yes |
 | **TFTP / PXE** | Network-boot a PC from your phone | Yes |
+| **Virtual USB drive** | Your phone acts as a USB flash drive (Ventoy or blank) for a PC | Yes |
+| **Drive analysis** | Partitions, free space and the ISO list of a USB drive | No |
 
 Ventoy and the ISO writer talk to the USB drive through the Android USB Host
 API (SCSI over Bulk-Only Transport). They never need root.

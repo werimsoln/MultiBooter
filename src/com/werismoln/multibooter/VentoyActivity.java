@@ -42,6 +42,9 @@ import android.widget.ProgressBar;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
+
+import com.werismoln.multibooter.settings.SettingsDefaults;
+import com.werismoln.multibooter.settings.SettingsManager;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -110,6 +113,12 @@ public class VentoyActivity extends BaseActivity {
      */
     private boolean statusOnly =
         false;
+
+        /** true while an update (not an install) is running. */
+    private boolean operationIsUpdate =
+        false;
+
+    private Button updateButton;
 
     private boolean installationRunning =
         false;
@@ -348,10 +357,19 @@ public class VentoyActivity extends BaseActivity {
                     -1
                 );
 
-            selectedGpt =
+                        selectedGpt =
                 savedInstanceState.getBoolean(
                     STATE_GPT,
                     false
+                );
+
+        } else {
+
+            selectedGpt =
+                SettingsDefaults.SCHEME_GPT.equals(
+                    SettingsManager.get(this).getString(
+                        SettingsDefaults.PARTITION_SCHEME
+                    )
                 );
         }
 
@@ -1331,22 +1349,48 @@ public class VentoyActivity extends BaseActivity {
                 R.id.ventoy_install_back
             );
 
-        Button install =
+                Button install =
             (Button)
             findViewById(
                 R.id.ventoy_install_button
             );
-
         if (
             selectedDevice == null ||
             selectedCapacity == null
         ) {
-
             currentPage =
                 PAGE_USB_SELECT;
-
             showUsbSelectPage();
             return;
+        }
+
+                setupUpdateButton(
+            backTop,
+            back,
+            install
+        );
+
+        Button analyze =
+            (Button)
+            findViewById(
+                R.id.ventoy_analyze_button
+            );
+
+        if (analyze != null) {
+
+            analyze.setOnClickListener(
+                new View.OnClickListener() {
+
+                    @Override
+                    public void onClick(View v) {
+
+                        UsbDriveAnalysis.run(
+                            VentoyActivity.this,
+                            selectedDevice
+                        );
+                    }
+                }
+            );
         }
 
         installDevice.setText(
@@ -1503,6 +1547,158 @@ public class VentoyActivity extends BaseActivity {
         );
     }
 
+        /** Shows the Update button when the drive already has Ventoy. */
+    private void setupUpdateButton(
+        final TextView backTop,
+        final Button back,
+        final Button install
+    ) {
+
+        updateButton =
+            (Button)
+            findViewById(
+                R.id.ventoy_update_button
+            );
+
+        if (updateButton == null) {
+            return;
+        }
+
+        if (
+            selectedVentoyInfo == null ||
+            !selectedVentoyInfo.layoutFound ||
+            selectedCapacity == null ||
+            selectedCapacity.blockSize != VentoyDetector.SECTOR
+        ) {
+
+            updateButton.setVisibility(View.GONE);
+            return;
+        }
+
+        String installed = selectedVentoyInfo.version;
+        String bundled = VentoyBundle.version(this);
+
+        int order =
+            VentoyVersion.isValid(installed) && VentoyVersion.isValid(bundled)
+            ? VentoyVersion.compare(bundled, installed)
+            : 1;
+
+        String label;
+
+        if (order > 0) {
+            label =
+                VentoyVersion.isValid(installed) && VentoyVersion.isValid(bundled)
+                ? "UPDATE VENTOY " + installed + " \u2192 " + bundled
+                : "UPDATE VENTOY";
+        } else if (order == 0) {
+            label = "REINSTALL VENTOY " + installed + " BOOT FILES";
+        } else {
+            label = "DOWNGRADE VENTOY " + installed + " \u2192 " + bundled;
+        }
+
+        updateButton.setText(label + " (KEEP MY FILES)");
+        updateButton.setVisibility(View.VISIBLE);
+
+        updateButton.setOnClickListener(
+            new View.OnClickListener() {
+
+                @Override
+                public void onClick(View v) {
+
+                    showUpdateConfirmation(backTop, back, install);
+                }
+            }
+        );
+    }
+
+    private void showUpdateConfirmation(
+        final TextView backTop,
+        final Button back,
+        final Button install
+    ) {
+
+        if (
+            selectedDevice == null ||
+            selectedVentoyInfo == null ||
+            !selectedVentoyInfo.layoutFound
+        ) {
+            return;
+        }
+
+        String installed = selectedVentoyInfo.version;
+        String bundled = VentoyBundle.version(this);
+
+        boolean known =
+            VentoyVersion.isValid(installed) &&
+            VentoyVersion.isValid(bundled);
+
+        int order = known ? VentoyVersion.compare(bundled, installed) : 1;
+
+        String title;
+        String message;
+        String positive;
+
+        if (order < 0) {
+
+            title = "Downgrade Ventoy?";
+            message =
+                "This drive has Ventoy " + installed +
+                ", which is NEWER than the Ventoy in this app (" + bundled +
+                ").\n\nDowngrading is not recommended: newer ISOs or " +
+                "settings may stop working.";
+            positive = "DOWNGRADE ANYWAY";
+
+        } else if (order == 0) {
+
+            title = "Reinstall boot files?";
+            message =
+                "This drive already has Ventoy " + installed +
+                " (the same version as this app).\n\nThe Ventoy boot " +
+                "files will be written again.";
+            positive = "REINSTALL";
+
+        } else {
+
+            title = "Update Ventoy?";
+            message =
+                known
+                ? "Update Ventoy " + installed + " \u2192 " + bundled + "."
+                : "Update the Ventoy boot files on this drive.";
+            positive = "UPDATE";
+        }
+
+        message +=
+            "\n\nYour files and partitions are NOT changed. Only the Ventoy " +
+            "boot files are replaced (" +
+            (selectedVentoyInfo.gpt ? "GPT" : "MBR") +
+            " is kept).\n\nDo not unplug the drive during the update.";
+
+        new AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setNegativeButton("CANCEL", null)
+            .setPositiveButton(
+                positive,
+                new DialogInterface.OnClickListener() {
+
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+
+                        operationIsUpdate = true;
+
+                        startVentoyInstallation(
+                            backTop,
+                            back,
+                            install,
+                            (ProgressBar) findViewById(R.id.ventoy_progress),
+                            (TextView) findViewById(R.id.ventoy_progress_text)
+                        );
+                    }
+                }
+            )
+            .show();
+    }
+
     private void showInstallConfirmation(
         final TextView backTop,
         final Button back,
@@ -1560,6 +1756,8 @@ public class VentoyActivity extends BaseActivity {
                         DialogInterface dialog,
                         int which
                     ) {
+
+                                                operationIsUpdate = false;
 
                         showFinalInstallConfirmation(
                             backTop,
@@ -1668,16 +1866,22 @@ public class VentoyActivity extends BaseActivity {
             0.45f
         );
 
-        setStyleGroupEnabled(
+                setStyleGroupEnabled(
             false
         );
+
+        if (updateButton != null) {
+            updateButton.setEnabled(false);
+        }
 
         progressBar.setProgress(
             0
         );
 
         progressText.setText(
-            "Preparing Ventoy installation..."
+            operationIsUpdate
+                ? "Preparing Ventoy update..."
+                : "Preparing Ventoy installation..."
         );
 
         setRequestedOrientation(
@@ -1699,7 +1903,9 @@ public class VentoyActivity extends BaseActivity {
         ModeService.begin(
             getApplicationContext(),
             ModeService.MODE_VENTOY,
-            "Preparing Ventoy installation...",
+            operationIsUpdate
+                ? "Preparing Ventoy update..."
+                : "Preparing Ventoy installation...",
             new ModeService.StopHook() {
 
                 @Override
@@ -1715,17 +1921,11 @@ public class VentoyActivity extends BaseActivity {
             }
         );
 
-        new Thread(
-            new Runnable() {
+        final boolean updating =
+            operationIsUpdate;
 
-                @Override
-                public void run() {
-
-                    int result =
-                        installer.install(
-                            installDevice,
-                            installGpt,
-                            new VentoyInstaller.ProgressListener() {
+        final VentoyInstaller.ProgressListener progressListener =
+            new VentoyInstaller.ProgressListener() {
 
                                 @Override
                                 public void onProgress(
@@ -1763,8 +1963,25 @@ public class VentoyActivity extends BaseActivity {
                                         }
                                     );
                                 }
-                            }
-                        );
+                            };
+
+        new Thread(
+            new Runnable() {
+
+                @Override
+                public void run() {
+
+                    int result =
+                        updating
+                            ? installer.update(
+                                installDevice,
+                                progressListener
+                            )
+                            : installer.install(
+                                installDevice,
+                                installGpt,
+                                progressListener
+                            );
 
                     final int finalResult =
                         result;
@@ -1780,11 +1997,19 @@ public class VentoyActivity extends BaseActivity {
                         ModeService.MODE_VENTOY,
                         finalResult == VentoyInstaller.RESULT_OK,
                         finalResult == VentoyInstaller.RESULT_OK
-                            ? "Ventoy installation completed."
+                            ? (
+                                updating
+                                    ? "Ventoy update completed."
+                                    : "Ventoy installation completed."
+                            )
                             : (
                                 finalError == null ||
                                 finalError.length() == 0
-                                    ? "Ventoy installation failed."
+                                    ? (
+                                        updating
+                                            ? "Ventoy update failed."
+                                            : "Ventoy installation failed."
+                                    )
                                     : finalError
                             )
                     );
@@ -1823,12 +2048,15 @@ public class VentoyActivity extends BaseActivity {
         TextView progressText
     ) {
 
-        installationRunning =
+                installationRunning =
             false;
-
         setStyleGroupEnabled(
             true
         );
+
+        if (updateButton != null) {
+            updateButton.setEnabled(true);
+        }
 
         getWindow().clearFlags(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
