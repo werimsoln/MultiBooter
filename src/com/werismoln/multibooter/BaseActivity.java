@@ -25,6 +25,7 @@ import android.content.Context;
 import android.content.Intent;
 
 import com.werismoln.multibooter.settings.SettingsManager;
+import com.werismoln.multibooter.settings.ThemeAware;
 import com.werismoln.multibooter.settings.ThemeManager;
 import android.os.Build;
 import android.view.View;
@@ -40,10 +41,13 @@ import android.view.WindowInsets;
  * those system areas so that buttons at the bottom of a screen stay above the
  * navigation bar and the last items of a scrolling screen can be reached.
  */
-public class BaseActivity extends Activity {
+public class BaseActivity extends Activity implements ThemeAware {
 
-    /** Appearance settings version this screen was built with. */
-    private int appearanceVersion;
+    /** Font scale version this screen was built with. */
+    private int fontVersion;
+
+    /** Appearance version this screen was last painted with. */
+    private int paintedVersion;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -55,18 +59,44 @@ public class BaseActivity extends Activity {
     protected void onCreate(android.os.Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         DebugLog.init(this);
-        appearanceVersion = SettingsManager.appearanceVersion();
+        fontVersion = SettingsManager.fontVersion();
+        paintedVersion = SettingsManager.appearanceVersion();
+        ThemeManager.register(this);
+        ThemeManager.paintWindow(this);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
 
-        // The theme, accent or font scale was changed on another screen.
-        if (appearanceVersion != SettingsManager.appearanceVersion()) {
-            appearanceVersion = SettingsManager.appearanceVersion();
+        // Only the font size needs the screen to be created again.
+        if (fontVersion != SettingsManager.fontVersion()) {
+            fontVersion = SettingsManager.fontVersion();
             recreate();
+            return;
         }
+
+        // Safety net: if a live update was missed, paint now.
+        if (paintedVersion != SettingsManager.appearanceVersion()) {
+            ThemeManager.repaint(this);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        ThemeManager.unregister(this);
+        super.onDestroy();
+    }
+
+    /**
+     * Called when the theme, accent or background changed. Screens that build
+     * their views in code override this and rebuild.
+     */
+    @Override
+    public void onThemeChanged() {
+        paintedVersion = SettingsManager.appearanceVersion();
+        ThemeManager.paintWindow(this);
+        applyTheme();
     }
 
     @Override

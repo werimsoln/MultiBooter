@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Holds the theme roles of a view (see ThemeManager). -->
+    <item name="mb_roles" type="id" />
+</resources>

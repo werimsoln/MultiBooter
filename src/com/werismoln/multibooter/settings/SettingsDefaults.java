@@ -41,11 +41,11 @@ public final class SettingsDefaults {
     public static final String THEME_DEFAULT = THEME_DARK;
 
     public static final String ACCENT = "appearance.accent";
-    public static final String ACCENT_DEFAULT = "blue";
+    public static final String ACCENT_DEFAULT = "violet";
 
     /** Used when ACCENT is "custom", as #RRGGBB. */
     public static final String ACCENT_CUSTOM = "appearance.accent_custom";
-    public static final String ACCENT_CUSTOM_DEFAULT = "#2563EB";
+    public static final String ACCENT_CUSTOM_DEFAULT = "#7C5CFF";
 
     public static final String BACKGROUND = "appearance.background";
     public static final String BACKGROUND_SOLID = "solid";

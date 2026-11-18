@@ -52,6 +52,14 @@ public class ControlCenterActivity extends BaseActivity {
         super.onResume();
     }
 
+    @Override
+    public void onThemeChanged() {
+
+        super.onThemeChanged();
+
+        build();
+    }
+
     private void build() {
 
         SettingsUi ui = new SettingsUi(this);

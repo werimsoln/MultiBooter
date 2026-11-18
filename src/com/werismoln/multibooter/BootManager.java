@@ -81,7 +81,7 @@ public class BootManager extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.boot_manager);
+        setContentView(R.layout.boot_manager_v015);
 
         bindViews();
 

@@ -64,6 +64,14 @@ public class SettingsCategoryActivity extends BaseActivity
     }
 
     @Override
+    public void onThemeChanged() {
+
+        super.onThemeChanged();
+
+        rebuild();
+    }
+
+    @Override
     public void rebuild() {
 
         int scrollY = scroll != null ? scroll.getScrollY() : 0;

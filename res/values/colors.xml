@@ -1,6 +1,30 @@
-<?xml version='1.0' encoding='utf-8' ?>
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+        Design palette (dark theme values). Every layout uses these colors by
+        name. At run time ThemeManager recognizes them as ROLES and re-colors
+        the screen for the chosen theme and accent, so a change shows up on
+        every screen immediately. Keep ThemeManager's marker constants equal to
+        these values (tests/check-palette.py verifies that).
+    -->
+    <color name="mb_bg">#0B0F19</color>
+    <color name="mb_surface">#141B2D</color>
+    <color name="mb_surface_high">#1D2740</color>
+    <color name="mb_accent">#7C5CFF</color>
+    <color name="mb_accent_deep">#4B2FD0</color>
+    <color name="mb_accent_soft">#297C5CFF</color>
+    <color name="mb_on_accent">#FFFFFE</color>
+    <color name="mb_text">#F4F6FF</color>
+    <color name="mb_text2">#B6BFD8</color>
+    <color name="mb_muted">#7C86A6</color>
+    <color name="mb_divider">#1FFFFFFF</color>
 
-   <color name="splash_bg_color">#0B305A</color>
+    <color name="mb_success">#22C55E</color>
+    <color name="mb_success_soft">#2922C55E</color>
+    <color name="mb_warning">#F59E0B</color>
+    <color name="mb_warning_soft">#29F59E0B</color>
+    <color name="mb_danger">#F43F5E</color>
+    <color name="mb_danger_soft">#29F43F5E</color>
 
+    <color name="splash_bg_color">#0B0F19</color>
 </resources>

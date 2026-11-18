@@ -106,6 +106,14 @@ public class VirtualUsbActivity extends BaseActivity {
     // Screen
     // ---------------------------------------------------------------------
 
+    @Override
+    public void onThemeChanged() {
+
+        super.onThemeChanged();
+
+        build();
+    }
+
     private void build() {
 
         SettingsUi ui = new SettingsUi(this);

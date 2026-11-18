@@ -1,0 +1,3 @@
+- Refreshed the Boot Manager with new responsive portrait and landscape layouts
+- Added consistent themed boot cards, selected-state styling and root requirement labels
+- Improved live theme updates and compatibility with the legacy v0.1.4 color palette

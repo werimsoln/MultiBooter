@@ -58,7 +58,7 @@ final class ModeStatusView {
         LinearLayout root = new LinearLayout(activity);
 
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.parseColor("#0B305A"));
+        root.setBackgroundColor(activity.getResources().getColor(R.color.mb_bg));
         root.setGravity(Gravity.CENTER_HORIZONTAL);
 
         int pad = dp(activity, 24);
@@ -68,7 +68,7 @@ final class ModeStatusView {
         final TextView title = new TextView(activity);
 
         title.setText(ModeService.titleOf(mode));
-        title.setTextColor(Color.WHITE);
+        title.setTextColor(activity.getResources().getColor(R.color.mb_text));
         title.setTextSize(22f);
         title.setGravity(Gravity.CENTER);
 
@@ -91,7 +91,7 @@ final class ModeStatusView {
 
         final TextView text = new TextView(activity);
 
-        text.setTextColor(Color.parseColor("#D7EEFF"));
+        text.setTextColor(activity.getResources().getColor(R.color.mb_text2));
         text.setTextSize(15f);
         text.setGravity(Gravity.CENTER);
 

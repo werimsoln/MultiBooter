@@ -41,6 +41,9 @@ public final class SettingsManager {
     /** Bumped whenever something that changes how screens look is written. */
     private static volatile int appearanceVersion = 0;
 
+    /** Bumped when the font size changes (screens must be created again). */
+    private static volatile int fontVersion = 0;
+
     private final SharedPreferences prefs;
 
     private SettingsManager(Context context) {
@@ -64,6 +67,11 @@ public final class SettingsManager {
     public static int appearanceVersion() {
 
         return appearanceVersion;
+    }
+
+    public static int fontVersion() {
+
+        return fontVersion;
     }
 
     public String getString(String key) {
@@ -104,6 +112,8 @@ public final class SettingsManager {
 
         prefs.edit().clear().apply();
         appearanceVersion++;
+        fontVersion++;
+        ThemeManager.refreshAll();
     }
 
     /** All stored (non-default) values, for the diagnostic report. */
@@ -115,7 +125,18 @@ public final class SettingsManager {
     private static void touch(String key) {
 
         if (key.startsWith("appearance.")) {
+
             appearanceVersion++;
+
+            if (key.equals(SettingsDefaults.FONT_SCALE)) {
+
+                fontVersion++;
+
+            } else {
+
+                // Colors, theme, background: repaint every open screen now.
+                ThemeManager.refreshAll();
+            }
         }
     }
 }
