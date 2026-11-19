@@ -1,0 +1,4 @@
+- Restyled the ISO Writer, Ventoy, USB Gadget, FunctionFS, TFTP, Settings, About and welcome screens to match the new Boot Manager design
+- All of these screens now use the themed color palette, so theme and accent color changes apply to them too
+- New rounded cards, input fields, progress bars and status banners, plus consistent primary, secondary and danger buttons
+- Updated back buttons, headers, spacing and text sizes in portrait and landscape
