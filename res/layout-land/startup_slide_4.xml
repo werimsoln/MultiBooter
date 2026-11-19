@@ -3,9 +3,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0B305A"
+    android:background="@color/mb_bg"
     android:gravity="center_horizontal"
-    android:padding="16dp">
+    android:paddingStart="20dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="20dp"
+    android:paddingBottom="14dp">
 
     <Space
         android:layout_width="match_parent"
@@ -17,7 +20,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Disable Battery Optimization (Optional)"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/mb_text"
         android:textSize="24sp"
         android:textStyle="bold"
         android:gravity="center" />
@@ -32,7 +35,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Recommended for long running modes such as the TFTP server. You can skip this, but some devices may stop background work earlier."
-        android:textColor="#D0E8FF"
+        android:textColor="@color/mb_text2"
         android:textSize="14sp"
         android:gravity="center"
         android:paddingStart="32dp"
@@ -48,7 +51,14 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="DISABLE"
-        android:backgroundTint="#2563EB" />
+        android:background="@drawable/bg_btn_primary"
+        android:textColor="@color/mb_on_accent"
+        android:textSize="15sp"
+        android:textAllCaps="false"
+        android:minHeight="54dp"
+        android:stateListAnimator="@null"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp" />
 
     <Space
         android:layout_width="match_parent"

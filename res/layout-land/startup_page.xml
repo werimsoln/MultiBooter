@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0B305A">
+    android:background="@color/mb_bg">
 
     <ViewFlipper
         android:id="@+id/viewflipper"
@@ -55,7 +55,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="&lt; BACK"
-                android:textColor="#FFFFFF" />
+                android:textColor="@color/mb_text"
+                android:background="@drawable/bg_btn_secondary"
+                android:textSize="15sp"
+                android:textAllCaps="false"
+                android:minHeight="54dp"
+                android:stateListAnimator="@null"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp" />
 
             <View
                 android:layout_width="0dp"
@@ -68,7 +75,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="NEXT &gt;"
-                android:textColor="#FFFFFF" />
+                android:textColor="@color/mb_text"
+                android:background="@drawable/bg_btn_secondary"
+                android:textSize="15sp"
+                android:textAllCaps="false"
+                android:minHeight="54dp"
+                android:stateListAnimator="@null"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp" />
         </LinearLayout>
     </LinearLayout>
 

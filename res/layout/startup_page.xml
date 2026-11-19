@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#0B305A">
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@color/mb_bg">
     
 	<View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.25" />
     
@@ -37,11 +37,11 @@
 
         <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="0.1" />
 
-        <Button android:id="@+id/button" style="?android:attr/borderlessButtonStyle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="left" android:text="&lt; BACK" android:backgroundTint="#1c75ad" />
+        <Button android:id="@+id/button" style="?android:attr/borderlessButtonStyle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="left" android:text="&lt; BACK" android:background="@drawable/bg_btn_secondary" android:textColor="@color/mb_text" android:textSize="15sp" android:textAllCaps="false" android:minHeight="54dp" android:stateListAnimator="@null" android:paddingStart="20dp" android:paddingEnd="20dp" />
 
         <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="0.8" />
 
-        <Button android:id="@+id/button2" style="?android:attr/borderlessButtonStyle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="right" android:text="NEXT &gt;" android:backgroundTint="#1c75ad" />
+        <Button android:id="@+id/button2" style="?android:attr/borderlessButtonStyle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="right" android:text="NEXT &gt;" android:background="@drawable/bg_btn_secondary" android:textColor="@color/mb_text" android:textSize="15sp" android:textAllCaps="false" android:minHeight="54dp" android:stateListAnimator="@null" android:paddingStart="20dp" android:paddingEnd="20dp" />
 
         <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="0.1" />
 

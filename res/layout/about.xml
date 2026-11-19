@@ -3,36 +3,40 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0B305A"
-    android:padding="16dp">
+    android:background="@color/mb_bg"
+    android:paddingStart="20dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="20dp"
+    android:paddingBottom="14dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingBottom="12dp">
+        android:paddingBottom="10dp">
 
         <TextView
             android:id="@+id/about_back_top"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:gravity="center"
             android:text="‹"
-            android:textColor="#FFFFFF"
-            android:textSize="34sp"
+            android:textColor="@color/mb_text2"
+            android:textSize="30sp"
             android:textStyle="bold"
-            android:background="?android:attr/selectableItemBackground"
+            android:background="@drawable/bg_icon_tile"
             android:clickable="true"
-            android:focusable="true" />
+            android:focusable="true"
+            android:foreground="?android:attr/selectableItemBackground" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:text="About"
-            android:textColor="#FFFFFF"
-            android:textSize="22sp"
+            android:textColor="@color/mb_text"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
     </LinearLayout>
@@ -64,7 +68,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="MultiBooter"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/mb_text"
                 android:textSize="26sp"
                 android:textStyle="bold"
                 android:gravity="center" />
@@ -74,7 +78,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="5dp"
                 android:text="Create bootable USB media or boot a computer directly from Android."
-                android:textColor="#BAE6FD"
+                android:textColor="@color/mb_text2"
                 android:textSize="14sp"
                 android:gravity="center"
                 android:paddingStart="16dp"
@@ -83,16 +87,16 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
+                android:layout_marginTop="12dp"
                 android:orientation="vertical"
-                android:background="#123A63"
+                android:background="@drawable/bg_card"
                 android:padding="14dp">
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="APPLICATION"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/mb_text"
                     android:textSize="15sp"
                     android:textStyle="bold" />
 
@@ -102,7 +106,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="Version:"
-                    android:textColor="#D7EEFF"
+                    android:textColor="@color/mb_text2"
                     android:textSize="13sp"
                     android:textIsSelectable="true" />
 
@@ -112,7 +116,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="5dp"
                     android:text="Package: com.werismoln.multibooter"
-                    android:textColor="#D7EEFF"
+                    android:textColor="@color/mb_text2"
                     android:textSize="13sp"
                     android:textIsSelectable="true" />
 
@@ -121,7 +125,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="5dp"
                     android:text="License: GNU General Public License v3.0"
-                    android:textColor="#D7EEFF"
+                    android:textColor="@color/mb_text2"
                     android:textSize="13sp" />
 
             </LinearLayout>
@@ -131,14 +135,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:orientation="vertical"
-                android:background="#123A63"
+                android:background="@drawable/bg_card"
                 android:padding="14dp">
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="BOOT MODES"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/mb_text"
                     android:textSize="15sp"
                     android:textStyle="bold" />
 
@@ -147,7 +151,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="• Ventoy bootable USB media&#10;• Direct ISO / bootable CD-ROM image writer&#10;• USB Gadget Mass Storage boot&#10;• TFTP network boot&#10;• FunctionFS userspace USB boot"
-                    android:textColor="#BAE6FD"
+                    android:textColor="@color/mb_text2"
                     android:textSize="13sp"
                     android:lineSpacingExtra="3dp" />
 
@@ -158,14 +162,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:orientation="vertical"
-                android:background="#123A63"
+                android:background="@drawable/bg_card"
                 android:padding="14dp">
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="PROJECT LINKS"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/mb_text"
                     android:textSize="15sp"
                     android:textStyle="bold" />
 
@@ -175,9 +179,13 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:text="SOURCE CODE"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/mb_on_accent"
                     android:textStyle="bold"
-                    android:backgroundTint="#2563EB" />
+                    android:background="@drawable/bg_btn_primary"
+                    android:textSize="15sp"
+                    android:textAllCaps="false"
+                    android:minHeight="54dp"
+                    android:stateListAnimator="@null" />
 
                 <Button
                     android:id="@+id/about_issues"
@@ -185,9 +193,13 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="ISSUE TRACKER"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/mb_on_accent"
                     android:textStyle="bold"
-                    android:backgroundTint="#2563EB" />
+                    android:background="@drawable/bg_btn_primary"
+                    android:textSize="15sp"
+                    android:textAllCaps="false"
+                    android:minHeight="54dp"
+                    android:stateListAnimator="@null" />
 
                 <Button
                     android:id="@+id/about_license"
@@ -195,9 +207,13 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="VIEW LICENSE"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/mb_on_accent"
                     android:textStyle="bold"
-                    android:backgroundTint="#2563EB" />
+                    android:background="@drawable/bg_btn_primary"
+                    android:textSize="15sp"
+                    android:textAllCaps="false"
+                    android:minHeight="54dp"
+                    android:stateListAnimator="@null" />
 
                 <Button
                     android:id="@+id/about_donate"
@@ -205,9 +221,13 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="BUY ME A COFFEE"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/mb_on_accent"
                     android:textStyle="bold"
-                    android:backgroundTint="#2563EB" />
+                    android:background="@drawable/bg_btn_primary"
+                    android:textSize="15sp"
+                    android:textAllCaps="false"
+                    android:minHeight="54dp"
+                    android:stateListAnimator="@null" />
 
             </LinearLayout>
 
@@ -216,7 +236,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:text="MultiBooter is free and open-source software."
-                android:textColor="#BAE6FD"
+                android:textColor="@color/mb_text2"
                 android:textSize="12sp"
                 android:gravity="center" />
 

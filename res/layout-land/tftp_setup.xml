@@ -3,36 +3,40 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0B305A"
-    android:padding="16dp">
+    android:background="@color/mb_bg"
+    android:paddingStart="20dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="20dp"
+    android:paddingBottom="14dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingBottom="12dp">
+        android:paddingBottom="10dp">
 
         <TextView
             android:id="@+id/tftp_back_top"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:gravity="center"
             android:text="‹"
-            android:textColor="#FFFFFF"
-            android:textSize="34sp"
+            android:textColor="@color/mb_text2"
+            android:textSize="30sp"
             android:textStyle="bold"
-            android:background="?android:attr/selectableItemBackground"
+            android:background="@drawable/bg_icon_tile"
             android:clickable="true"
-            android:focusable="true" />
+            android:focusable="true"
+            android:foreground="?android:attr/selectableItemBackground" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:text="PXE / TFTP Boot"
-            android:textColor="#FFFFFF"
-            android:textSize="22sp"
+            android:textColor="@color/mb_text"
+            android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -53,7 +57,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:text="Root dnsmasq DHCP + TFTP server for PXE boot"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/mb_text"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
@@ -63,9 +67,9 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:padding="12dp"
-                android:background="#123A63"
+                android:background="@drawable/bg_card"
                 android:text="Host ABI"
-                android:textColor="#BAE6FD"
+                android:textColor="@color/mb_text2"
                 android:textSize="13sp" />
 
             <LinearLayout
@@ -73,14 +77,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:orientation="vertical"
-                android:background="#123A63"
+                android:background="@drawable/bg_card"
                 android:padding="14dp">
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="NETWORK INTERFACE"
-                    android:textColor="#D7EEFF"
+                    android:textColor="@color/mb_text"
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
@@ -90,7 +94,7 @@
                     android:layout_height="52dp"
                     android:layout_marginTop="4dp"
                     android:spinnerMode="dropdown"
-                    android:backgroundTint="#BAE6FD" />
+                    android:backgroundTint="@color/mb_text2" />
 
                 <Button
                     android:id="@+id/tftp_refresh_interfaces"
@@ -98,9 +102,13 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="REFRESH INTERFACES"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/mb_on_accent"
                     android:textStyle="bold"
-                    android:backgroundTint="#2563EB" />
+                    android:background="@drawable/bg_btn_primary"
+                    android:textSize="15sp"
+                    android:textAllCaps="false"
+                    android:minHeight="54dp"
+                    android:stateListAnimator="@null" />
             </LinearLayout>
 
             <LinearLayout
@@ -108,14 +116,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:orientation="vertical"
-                android:background="#123A63"
+                android:background="@drawable/bg_card"
                 android:padding="14dp">
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="TFTP ROOT"
-                    android:textColor="#D7EEFF"
+                    android:textColor="@color/mb_text"
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
@@ -127,9 +135,13 @@
                     android:singleLine="true"
                     android:inputType="text"
                     android:hint="/sdcard/Download/tftp"
-                    android:textColor="#FFFFFF"
-                    android:textColorHint="#7FB2D9"
-                    android:backgroundTint="#BAE6FD" />
+                    android:textColor="@color/mb_text"
+                    android:textColorHint="@color/mb_muted"
+                    android:background="@drawable/bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp" />
 
                 <Button
                     android:id="@+id/tftp_create_root"
@@ -137,16 +149,20 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="CREATE TFTP ROOT"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/mb_on_accent"
                     android:textStyle="bold"
-                    android:backgroundTint="#0F766E" />
+                    android:background="@drawable/bg_btn_primary"
+                    android:textSize="15sp"
+                    android:textAllCaps="false"
+                    android:minHeight="54dp"
+                    android:stateListAnimator="@null" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:text="BOOT FILE — relative to TFTP root"
-                    android:textColor="#D7EEFF"
+                    android:textColor="@color/mb_text"
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
@@ -158,16 +174,20 @@
                     android:singleLine="true"
                     android:inputType="text"
                     android:hint="pxelinux.0"
-                    android:textColor="#FFFFFF"
-                    android:textColorHint="#7FB2D9"
-                    android:backgroundTint="#BAE6FD" />
+                    android:textColor="@color/mb_text"
+                    android:textColorHint="@color/mb_muted"
+                    android:background="@drawable/bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="7dp"
                     android:text="Legacy example: pxelinux.0\nUEFI example: bootx64.efi or the distribution-specific EFI loader path."
-                    android:textColor="#BAE6FD"
+                    android:textColor="@color/mb_text2"
                     android:textSize="12sp" />
             </LinearLayout>
 
@@ -176,14 +196,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:orientation="vertical"
-                android:background="#123A63"
+                android:background="@drawable/bg_card"
                 android:padding="14dp">
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="PXE NETWORK"
-                    android:textColor="#D7EEFF"
+                    android:textColor="@color/mb_text"
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
@@ -195,9 +215,13 @@
                     android:singleLine="true"
                     android:inputType="phone"
                     android:hint="192.168.2.1"
-                    android:textColor="#FFFFFF"
-                    android:textColorHint="#7FB2D9"
-                    android:backgroundTint="#BAE6FD" />
+                    android:textColor="@color/mb_text"
+                    android:textColorHint="@color/mb_muted"
+                    android:background="@drawable/bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp" />
 
                 <EditText
                     android:id="@+id/tftp_dhcp_start"
@@ -207,9 +231,13 @@
                     android:singleLine="true"
                     android:inputType="phone"
                     android:hint="192.168.2.10"
-                    android:textColor="#FFFFFF"
-                    android:textColorHint="#7FB2D9"
-                    android:backgroundTint="#BAE6FD" />
+                    android:textColor="@color/mb_text"
+                    android:textColorHint="@color/mb_muted"
+                    android:background="@drawable/bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp" />
 
                 <EditText
                     android:id="@+id/tftp_dhcp_end"
@@ -219,9 +247,13 @@
                     android:singleLine="true"
                     android:inputType="phone"
                     android:hint="192.168.2.100"
-                    android:textColor="#FFFFFF"
-                    android:textColorHint="#7FB2D9"
-                    android:backgroundTint="#BAE6FD" />
+                    android:textColor="@color/mb_text"
+                    android:textColorHint="@color/mb_muted"
+                    android:background="@drawable/bg_input"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp" />
             </LinearLayout>
 
             <TextView
@@ -229,9 +261,9 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:padding="13dp"
-                android:background="#5A2A2A"
+                android:background="@drawable/bg_banner_danger"
                 android:text="WARNING: Requires root. Use a dedicated Ethernet/USB network segment. Starting another DHCP server on an existing LAN can disrupt that network."
-                android:textColor="#FFFFFF"
+                android:textColor="@color/mb_danger"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -259,9 +291,13 @@
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
             android:text="CANCEL"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/mb_text"
             android:textStyle="bold"
-            android:backgroundTint="#123A63" />
+            android:background="@drawable/bg_btn_secondary"
+            android:textSize="15sp"
+            android:textAllCaps="false"
+            android:minHeight="54dp"
+            android:stateListAnimator="@null" />
 
         <Button
             android:id="@+id/tftp_start"
@@ -270,9 +306,13 @@
             android:layout_weight="1"
             android:layout_marginStart="8dp"
             android:text="START PXE"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/mb_on_accent"
             android:textStyle="bold"
-            android:backgroundTint="#0F766E" />
+            android:background="@drawable/bg_btn_primary"
+            android:textSize="15sp"
+            android:textAllCaps="false"
+            android:minHeight="54dp"
+            android:stateListAnimator="@null" />
     </LinearLayout>
 
 </LinearLayout>

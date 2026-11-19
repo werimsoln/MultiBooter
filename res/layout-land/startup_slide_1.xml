@@ -3,9 +3,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0B305A"
+    android:background="@color/mb_bg"
     android:gravity="center_horizontal"
-    android:padding="16dp">
+    android:paddingStart="20dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="20dp"
+    android:paddingBottom="14dp">
 
     <Space
         android:layout_width="match_parent"
@@ -17,7 +20,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Welcome to MultiBooter!"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/mb_text"
         android:textSize="26sp"
         android:textStyle="bold"
         android:gravity="center" />
@@ -32,8 +35,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="a PC booting app with multiple solutions."
-        android:textColor="#D0E8FF"
-        android:textSize="16sp"
+        android:textColor="@color/mb_text2"
+        android:textSize="14sp"
         android:gravity="center"
         android:paddingStart="32dp"
         android:paddingEnd="32dp" />
