@@ -641,6 +641,10 @@ public class GadgetActivity extends BaseActivity {
                 @Override
                 public void run() {
 
+                    UsbGadget.restorePendingUsb(
+                        getApplicationContext()
+                    );
+
                     final UsbGadget.ProbeInfo probe =
                         UsbGadget.probe();
 
