@@ -40,11 +40,13 @@ import java.io.IOException;
  *
  * Some Samsung kernels accept the first mass_storage instance after boot,
  * but return ENODEV for every later instance after that first instance is
- * rmdir()'d.  Therefore MultiBooter owns one persistent instance:
+ * rmdir()'d.  Therefore MultiBooter reuses any existing mass_storage.*
+ * instance (for example the vendor's mass_storage.usb0).  If none exists it
+ * creates one persistent instance:
  *
  *   functions/mass_storage.multibooter
  *
- * It is created at the first real START and reused until reboot.
+ * The instance is reused until reboot and is never removed by a normal stop.
  */
 public final class UsbGadget {
 
@@ -68,6 +70,7 @@ public final class UsbGadget {
         public final boolean rootGranted;
         public final boolean configFsFound;
         public final boolean massStorageSupported;
+        public final String massStorageFunction;
         public final String gadgetRoot;
         public final String configPath;
         public final String currentUdc;
@@ -77,6 +80,7 @@ public final class UsbGadget {
             boolean rootGranted,
             boolean configFsFound,
             boolean massStorageSupported,
+            String massStorageFunction,
             String gadgetRoot,
             String configPath,
             String currentUdc,
@@ -85,6 +89,7 @@ public final class UsbGadget {
             this.rootGranted = rootGranted;
             this.configFsFound = configFsFound;
             this.massStorageSupported = massStorageSupported;
+            this.massStorageFunction = safe(massStorageFunction);
             this.gadgetRoot = safe(gadgetRoot);
             this.configPath = safe(configPath);
             this.currentUdc = safe(currentUdc);
@@ -103,7 +108,9 @@ public final class UsbGadget {
         public final String configPath;
         public final String functionPath;
         public final String linkPath;
+        public final boolean createdLink;
         public final String originalUdc;
+        public final String originalUsbConfig;
         public final String boundUdc;
 
         SessionInfo(
@@ -116,7 +123,9 @@ public final class UsbGadget {
             String configPath,
             String functionPath,
             String linkPath,
+            boolean createdLink,
             String originalUdc,
+            String originalUsbConfig,
             String boundUdc
         ) {
             this.active = active;
@@ -128,7 +137,9 @@ public final class UsbGadget {
             this.configPath = safe(configPath);
             this.functionPath = safe(functionPath);
             this.linkPath = safe(linkPath);
+            this.createdLink = createdLink;
             this.originalUdc = safe(originalUdc);
+            this.originalUsbConfig = safe(originalUsbConfig);
             this.boundUdc = safe(boundUdc);
         }
     }
@@ -173,12 +184,13 @@ public final class UsbGadget {
                 "",
                 "",
                 "",
+                "",
                 lastError
             );
         }
 
         String script =
-            "G=''; C=''; U=''; MS='unknown'; SRC='unknown'; " +
+            "G=''; C=''; U=''; MS='unknown'; MSF=''; SRC='unknown'; " +
             "for P in /config/usb_gadget/* /sys/kernel/config/usb_gadget/*; do " +
             "  if test -d \"$P\"; then G=\"$P\"; break; fi; " +
             "done; " +
@@ -189,9 +201,14 @@ public final class UsbGadget {
             "if test -z \"$C\"; then echo 'ERR=NO_CONFIG'; exit 21; fi; " +
             "U=$(cat \"$G/UDC\" 2>/dev/null); " +
 
-            // Best signal: our persistent instance already exists.
-            "if test -d \"$G/functions/" + FUNCTION_NAME + "\"; then " +
-            "  MS=1; SRC='persistent-instance'; " +
+            // Best signal: any usable mass_storage instance already exists.
+            // Reuse it instead of creating a second one; some vendor kernels
+            // return ENODEV for every instance after the first.
+            "for P in \"$G\"/functions/mass_storage.*; do " +
+            "  if test -d \"$P\"; then MSF=${P##*/}; break; fi; " +
+            "done; " +
+            "if test -n \"$MSF\"; then " +
+            "  MS=1; SRC='existing-instance'; " +
             "elif test -r /proc/config.gz; then " +
             // Android devices commonly expose kernel config through /proc/config.gz.
             "  if (zcat /proc/config.gz 2>/dev/null || " +
@@ -213,6 +230,7 @@ public final class UsbGadget {
             "echo \"C=$C\"; " +
             "echo \"U=$U\"; " +
             "echo \"MS=$MS\"; " +
+            "echo \"MSF=$MSF\"; " +
             "echo \"SRC=$SRC\";";
 
         CommandResult result = runRoot(script);
@@ -220,6 +238,7 @@ public final class UsbGadget {
         String gadget = valueOf(result.output, "G=");
         String config = valueOf(result.output, "C=");
         String udc = valueOf(result.output, "U=");
+        String massStorageFunction = valueOf(result.output, "MSF=");
         String source = valueOf(result.output, "SRC=");
 
         boolean massStorage =
@@ -246,6 +265,7 @@ public final class UsbGadget {
                 true,
                 false,
                 false,
+                massStorageFunction,
                 gadget,
                 config,
                 udc,
@@ -258,9 +278,10 @@ public final class UsbGadget {
         if (!massStorage) {
             message =
                 "Kernel config reports ConfigFS Mass Storage as disabled.";
-        } else if ("persistent-instance".equals(source)) {
+        } else if ("existing-instance".equals(source)) {
             message =
-                "Mass Storage persistent instance is ready and will be reused.";
+                "Mass Storage function " + massStorageFunction +
+                " is already present and will be reused.";
         } else if ("kernel-config".equals(source)) {
             message =
                 "Kernel config reports ConfigFS Mass Storage support. " +
@@ -279,6 +300,7 @@ public final class UsbGadget {
             true,
             true,
             massStorage,
+            massStorageFunction,
             gadget,
             config,
             udc,
@@ -379,6 +401,14 @@ public final class UsbGadget {
             return false;
         }
 
+        /*
+         * Android exposes primary storage through FUSE at /storage/emulated/0.
+         * The kernel opens the LUN backing file directly, so prefer the
+         * underlying /data/media/0 path when the picker returned a FUSE path.
+         */
+        final String backingPath =
+            kernelBackingPath(image.getAbsolutePath());
+
         ProbeInfo probe = probe();
 
         if (
@@ -398,22 +428,26 @@ public final class UsbGadget {
          * root anyway, so verify it as root instead.
          */
         CommandResult imageCheck = runRoot(
-            "test -f " + shell(image.getAbsolutePath()) +
-            " && test -r " + shell(image.getAbsolutePath())
+            "test -f " + shell(backingPath) +
+            " && test -r " + shell(backingPath)
         );
 
         if (imageCheck.exitCode != 0) {
             lastError =
                 "ISO/IMG file does not exist or is not readable by root: " +
-                image.getAbsolutePath();
+                backingPath;
             return false;
         }
 
         final String gadget = probe.gadgetRoot;
         final String config = probe.configPath;
+        final String functionName =
+            probe.massStorageFunction.length() > 0
+                ? probe.massStorageFunction
+                : FUNCTION_NAME;
         final String function =
-            gadget + "/functions/" + FUNCTION_NAME;
-        final String link =
+            gadget + "/functions/" + functionName;
+        final String legacyLink =
             config + "/" + LINK_NAME;
         final String originalUdc = probe.currentUdc;
 
@@ -424,30 +458,62 @@ public final class UsbGadget {
         final String roValue = effectiveReadOnly ? "1" : "0";
 
         /*
-         * Stage 1: disconnect first and give Samsung/vendor UDC code time to
-         * finish the old configuration teardown before touching the LUN.
+         * Remember Android's current USB composition before touching it.  The
+         * marker lets a later Gadget-screen probe recover if this process is
+         * killed after sys.usb.config is switched to "none".
+         */
+        CommandResult usbConfig = runRoot(
+            "getprop sys.usb.config 2>/dev/null"
+        );
+
+        final String originalUsbConfig =
+            safe(usbConfig.output).trim();
+
+        savePendingUsb(
+            context.getApplicationContext(),
+            gadget,
+            originalUdc,
+            originalUsbConfig
+        );
+
+        /*
+         * Stage 1: let Android's USB init release the gadget first.  Writing
+         * sys.usb.config=none stops adbd and removes f1..fN links on standard
+         * Android init scripts, so Android does not race us for the UDC.
          */
         CommandResult unbind = runRoot(
+            "setprop sys.usb.config none 2>/dev/null || true; " +
+            "stop adbd 2>/dev/null || true; " +
             "G=" + shell(gadget) + "; " +
-            "printf '\\n' > \"$G/UDC\" 2>/dev/null || exit 30;"
+            "printf '\\n' > \"$G/UDC\" 2>/dev/null || true; " +
+            "test -z \"$(cat \"$G/UDC\" 2>/dev/null)\" || exit 30;"
         );
 
         if (unbind.exitCode != 0) {
+            restoreUsb(
+                gadget,
+                originalUdc,
+                originalUsbConfig
+            );
+            clearPendingUsb(context.getApplicationContext());
             lastError = explainEnableError(unbind.exitCode, unbind.output);
             return false;
         }
 
-        sleepQuietly(250L);
+        sleepQuietly(500L);
 
         /*
          * Stage 2: create once, then reuse forever for this boot.
          *
-         * Absolutely no rmdir "$F" here.
+         * Absolutely no rmdir "$F" here.  Reuse any existing mass_storage.*
+         * instance (some vendor kernels only allow the first one) and reuse
+         * an existing config link when Android already made one.
          */
         String configure =
+            "C=" + shell(config) + "; " +
             "F=" + shell(function) + "; " +
-            "L=" + shell(link) + "; " +
-            "IMG=" + shell(image.getAbsolutePath()) + "; " +
+            "L=" + shell(legacyLink) + "; " +
+            "IMG=" + shell(backingPath) + "; " +
             "if test -L \"$L\"; then rm \"$L\" || exit 31; fi; " +
             "if test ! -d \"$F\"; then " +
             "  mkdir \"$F\" || exit 32; " +
@@ -465,7 +531,31 @@ public final class UsbGadget {
             "  echo " + cdromValue + " > \"$F/lun.0/cdrom\" || exit 35; " +
             "fi; " +
             "printf '%s\\n' \"$IMG\" > \"$F/lun.0/file\" || exit 36; " +
-            "ln -s \"$F\" \"$L\" || exit 37;";
+            "LINK=''; " +
+            "for P in \"$C\"/*; do " +
+            "  if test -L \"$P\"; then " +
+            "    T=$(readlink -f \"$P\" 2>/dev/null || true); " +
+            "    if test -z \"$T\"; then " +
+            "      T=$(readlink \"$P\" 2>/dev/null || true); " +
+            "    fi; " +
+            "    if test \"$T\" = \"$F\" || " +
+            "       test \"${T##*/}\" = \"${F##*/}\"; then " +
+            "      LINK=\"$P\"; break; " +
+            "    fi; " +
+            "  fi; " +
+            "done; " +
+            "CREATED=0; " +
+            "if test -z \"$LINK\"; then " +
+            "  N=1; " +
+            "  while test -e \"$C/f$N\" || test -L \"$C/f$N\"; do " +
+            "    N=$((N+1)); " +
+            "  done; " +
+            "  LINK=\"$C/f$N\"; " +
+            "  ln -s \"$F\" \"$LINK\" || exit 37; " +
+            "  CREATED=1; " +
+            "fi; " +
+            "echo \"LINK=$LINK\"; " +
+            "echo \"CREATED=$CREATED\";";
 
         CommandResult configured = runRoot(configure);
 
@@ -473,9 +563,12 @@ public final class UsbGadget {
             cleanupFailedEnable(
                 gadget,
                 function,
-                link,
-                originalUdc
+                legacyLink,
+                false,
+                originalUdc,
+                originalUsbConfig
             );
+            clearPendingUsb(context.getApplicationContext());
             lastError =
                 explainEnableError(
                     configured.exitCode,
@@ -484,15 +577,35 @@ public final class UsbGadget {
             return false;
         }
 
+        String link = valueOf(configured.output, "LINK=");
+        boolean createdLink =
+            "1".equals(valueOf(configured.output, "CREATED="));
+
+        if (link.length() == 0) {
+            cleanupFailedEnable(
+                gadget,
+                function,
+                legacyLink,
+                false,
+                originalUdc,
+                originalUsbConfig
+            );
+            clearPendingUsb(context.getApplicationContext());
+            lastError =
+                "Could not link Mass Storage into the active USB configuration";
+            return false;
+        }
+
         sleepQuietly(100L);
 
         /*
-         * Stage 3: bind the previous UDC, or the first available controller
-         * when Android had left UDC empty before START.
+         * Stage 3: bind the controller reported by Android, then fall back to
+         * the previous UDC or the first available controller.
          */
         String bindScript =
             "G=" + shell(gadget) + "; " +
-            "UDC=" + shell(originalUdc) + "; " +
+            "UDC=$(getprop sys.usb.controller 2>/dev/null); " +
+            "if test -z \"$UDC\"; then UDC=" + shell(originalUdc) + "; fi; " +
             "if test -z \"$UDC\"; then " +
             "  for P in /sys/class/udc/*; do " +
             "    if test -e \"$P\"; then UDC=${P##*/}; break; fi; " +
@@ -509,8 +622,11 @@ public final class UsbGadget {
                 gadget,
                 function,
                 link,
-                originalUdc
+                createdLink,
+                originalUdc,
+                originalUsbConfig
             );
+            clearPendingUsb(context.getApplicationContext());
             lastError =
                 explainEnableError(
                     boundResult.exitCode,
@@ -537,17 +653,21 @@ public final class UsbGadget {
                 config,
                 function,
                 link,
+                createdLink,
                 originalUdc,
+                originalUsbConfig,
                 bound
             )
         );
+
+        clearPendingUsb(context.getApplicationContext());
 
         lastError = "";
         return true;
     }
 
     /**
-     * Disable the exported medium but KEEP functions/mass_storage.multibooter.
+     * Disable the exported medium but KEEP the mass_storage function instance.
      *
      * The function directory is intentionally persistent until reboot.  This
      * avoids the Samsung ENODEV-after-rmdir bug confirmed on the target device.
@@ -575,36 +695,41 @@ public final class UsbGadget {
         // Give the host disconnect and UDC teardown time to settle.
         sleepQuietly(250L);
 
+        boolean removeLink =
+            session.createdLink ||
+            session.linkPath.endsWith("/" + LINK_NAME);
+
         String detachScript =
             "F=" + shell(session.functionPath) + "; " +
             "L=" + shell(session.linkPath) + "; " +
-            "if test -L \"$L\"; then rm \"$L\" 2>/dev/null || exit 50; fi; " +
+            (
+                removeLink
+                    ? "if test -L \"$L\"; then rm \"$L\" 2>/dev/null || exit 50; fi; "
+                    : ""
+            ) +
             "if test -e \"$F/lun.0/file\"; then " +
             "  printf '\\n' > \"$F/lun.0/file\" 2>/dev/null || exit 53; " +
             "fi; " +
             // IMPORTANT: no rmdir "$F".
-            "test ! -L \"$L\" || exit 54;";
+            (
+                removeLink
+                    ? "test ! -L \"$L\" || exit 54;"
+                    : "true;"
+            );
 
         CommandResult detach = runRoot(detachScript);
 
         sleepQuietly(100L);
 
-        boolean restored = true;
-        String restoreOutput = "";
-        int restoreCode = 0;
+        CommandResult restore = restoreUsb(
+            session.gadgetRoot,
+            session.originalUdc,
+            session.originalUsbConfig
+        );
 
-        if (session.originalUdc.length() > 0) {
-            CommandResult restore = runRoot(
-                "G=" + shell(session.gadgetRoot) + "; " +
-                "printf '%s\\n' " +
-                shell(session.originalUdc) +
-                " > \"$G/UDC\""
-            );
-
-            restored = restore.exitCode == 0;
-            restoreOutput = restore.output;
-            restoreCode = restore.exitCode;
-        }
+        boolean restored = restore.exitCode == 0;
+        String restoreOutput = restore.output;
+        int restoreCode = restore.exitCode;
 
         if (unbind.exitCode != 0 || detach.exitCode != 0 || !restored) {
             StringBuilder error = new StringBuilder();
@@ -628,7 +753,7 @@ public final class UsbGadget {
             if (!restored) {
                 appendError(
                     error,
-                    "UDC restore: " + restoreOutput +
+                    "USB restore: " + restoreOutput +
                     " (exit " + restoreCode + ")"
                 );
             }
@@ -642,6 +767,7 @@ public final class UsbGadget {
         }
 
         clearSession(context.getApplicationContext());
+        clearPendingUsb(context.getApplicationContext());
 
         if (session.stagedImage) {
             File stagedImage = new File(session.imagePath);
@@ -699,6 +825,8 @@ public final class UsbGadget {
                 "",
                 "",
                 "",
+                false,
+                "",
                 "",
                 ""
             );
@@ -718,7 +846,9 @@ public final class UsbGadget {
             prefs.getString("config", ""),
             prefs.getString("function", ""),
             prefs.getString("link", ""),
+            prefs.getBoolean("created_link", false),
             prefs.getString("original_udc", ""),
+            prefs.getString("original_usb_config", ""),
             prefs.getString("bound_udc", "")
         );
     }
@@ -735,7 +865,9 @@ public final class UsbGadget {
             .putString("config", session.configPath)
             .putString("function", session.functionPath)
             .putString("link", session.linkPath)
+            .putBoolean("created_link", session.createdLink)
             .putString("original_udc", session.originalUdc)
+            .putString("original_usb_config", session.originalUsbConfig)
             .putString("bound_udc", session.boundUdc)
             .apply();
     }
@@ -745,6 +877,82 @@ public final class UsbGadget {
             .edit()
             .clear()
             .apply();
+    }
+
+    private static void savePendingUsb(
+        Context context,
+        String gadget,
+        String originalUdc,
+        String originalUsbConfig
+    ) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("pending_restore", true)
+            .putLong("pending_time", System.currentTimeMillis())
+            .putString("pending_gadget", safe(gadget))
+            .putString("pending_udc", safe(originalUdc))
+            .putString("pending_usb_config", safe(originalUsbConfig))
+            .apply();
+    }
+
+    private static void clearPendingUsb(Context context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .remove("pending_restore")
+            .remove("pending_time")
+            .remove("pending_gadget")
+            .remove("pending_udc")
+            .remove("pending_usb_config")
+            .apply();
+    }
+
+    /**
+     * Restores USB if a previous START was interrupted before the session was
+     * saved.  The Gadget screen calls this before probing so a killed app does
+     * not leave Android's USB composition switched to "none".
+     */
+    public static void restorePendingUsb(Context context) {
+
+        if (context == null) {
+            return;
+        }
+
+        SharedPreferences prefs =
+            context.getApplicationContext()
+                .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+
+        if (!prefs.getBoolean("pending_restore", false)) {
+            return;
+        }
+
+        long pendingTime =
+            prefs.getLong("pending_time", 0L);
+
+        if (
+            pendingTime > 0L &&
+            System.currentTimeMillis() - pendingTime < 15000L
+        ) {
+            return;
+        }
+
+        String gadget =
+            prefs.getString("pending_gadget", "");
+
+        String originalUdc =
+            prefs.getString("pending_udc", "");
+
+        String originalUsbConfig =
+            prefs.getString("pending_usb_config", "");
+
+        if (gadget.length() > 0) {
+            restoreUsb(
+                gadget,
+                originalUdc,
+                originalUsbConfig
+            );
+        }
+
+        clearPendingUsb(context.getApplicationContext());
     }
 
     private static File copyDocumentToBackingFile(
@@ -840,14 +1048,20 @@ public final class UsbGadget {
         String gadget,
         String function,
         String link,
-        String originalUdc
+        boolean removeLink,
+        String originalUdc,
+        String originalUsbConfig
     ) {
         runRoot(
             "G=" + shell(gadget) + "; " +
             "F=" + shell(function) + "; " +
             "L=" + shell(link) + "; " +
             "printf '\\n' > \"$G/UDC\" 2>/dev/null || true; " +
-            "if test -L \"$L\"; then rm \"$L\" 2>/dev/null || true; fi; " +
+            (
+                removeLink
+                    ? "if test -L \"$L\"; then rm \"$L\" 2>/dev/null || true; fi; "
+                    : ""
+            ) +
             "if test -e \"$F/lun.0/file\"; then " +
             "  printf '\\n' > \"$F/lun.0/file\" 2>/dev/null || true; " +
             "fi;"
@@ -855,13 +1069,44 @@ public final class UsbGadget {
 
         sleepQuietly(100L);
 
-        if (safe(originalUdc).length() > 0) {
-            runRoot(
-                "G=" + shell(gadget) + "; " +
-                "printf '%s\\n' " + shell(originalUdc) +
-                " > \"$G/UDC\" 2>/dev/null || true;"
-            );
-        }
+        restoreUsb(
+            gadget,
+            originalUdc,
+            originalUsbConfig
+        );
+    }
+
+    /**
+     * Restores the Android USB composition captured before START.
+     *
+     * sys.usb.config is the property Android init watches: setting it back
+     * recreates ffs.adb / mtp links and binds the UDC again.  If init does not
+     * bind the controller quickly, fall back to the saved UDC.
+     */
+    private static CommandResult restoreUsb(
+        String gadget,
+        String originalUdc,
+        String originalUsbConfig
+    ) {
+        String config =
+            safe(originalUsbConfig).trim();
+
+        String script =
+            "G=" + shell(gadget) + "; " +
+            "UDC=" + shell(originalUdc) + "; " +
+            "CFG=" + shell(config) + "; " +
+            "if test -n \"$CFG\" && test \"$CFG\" != none; then " +
+            "  start adbd 2>/dev/null || true; " +
+            "  setprop sys.usb.config \"$CFG\" 2>/dev/null || true; " +
+            "  sleep 2; " +
+            "fi; " +
+            "if test -n \"$UDC\"; then " +
+            "  if test -z \"$(cat \"$G/UDC\" 2>/dev/null)\"; then " +
+            "    printf '%s\\n' \"$UDC\" > \"$G/UDC\" 2>/dev/null || true; " +
+            "  fi; " +
+            "fi;";
+
+        return runRoot(script);
     }
 
     private static String explainEnableError(int code, String output) {
@@ -989,6 +1234,97 @@ public final class UsbGadget {
         }
 
         return "";
+    }
+
+    /**
+     * The kernel opens a ConfigFS LUN backing file directly, bypassing the
+     * FUSE /storage view used by Android apps.  Map the primary-storage
+     * aliases to the underlying /data/media/<user> path.
+     */
+    private static String kernelBackingPath(String path) {
+
+        String value =
+            safe(path).trim();
+
+        if (value.length() == 0) {
+            return value;
+        }
+
+        String primary =
+            "/storage/emulated/0";
+
+        if (value.equals(primary)) {
+            return "/data/media/0";
+        }
+
+        if (value.startsWith(primary + "/")) {
+            return "/data/media/0" + value.substring(primary.length());
+        }
+
+        String[] aliases = {
+            "/sdcard",
+            "/mnt/sdcard",
+            "/storage/self/primary"
+        };
+
+        for (String alias : aliases) {
+
+            if (value.equals(alias)) {
+                return "/data/media/0";
+            }
+
+            if (value.startsWith(alias + "/")) {
+                return "/data/media/0" + value.substring(alias.length());
+            }
+        }
+
+        String emulated =
+            "/storage/emulated/";
+
+        if (value.startsWith(emulated)) {
+
+            String rest =
+                value.substring(emulated.length());
+
+            int slash =
+                rest.indexOf('/');
+
+            String user =
+                slash < 0
+                    ? rest
+                    : rest.substring(0, slash);
+
+            if (user.length() > 0 && isDigits(user)) {
+                return
+                    "/data/media/" +
+                    user +
+                    (
+                        slash < 0
+                            ? ""
+                            : rest.substring(slash)
+                    );
+            }
+        }
+
+        return value;
+    }
+
+    private static boolean isDigits(String value) {
+
+        if (value.length() == 0) {
+            return false;
+        }
+
+        for (int i = 0; i < value.length(); i++) {
+            if (
+                value.charAt(i) < '0' ||
+                value.charAt(i) > '9'
+            ) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static String shell(String value) {
